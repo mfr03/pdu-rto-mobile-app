@@ -3,26 +3,57 @@ import 'package:pdu_mobile_rto_app/features/charts/model/chart_data.dart';
 
 class ChartController extends GetxController {
 
-  List<ChartData> chartData = [
-    ChartData("A", 30),
-    ChartData("B", 40),
-    ChartData("C", 35),
-  ];
+  final RxList<ChartData> fullData = <ChartData>[].obs;
 
-  void addData(String category, double value) {
+  final RxList<ChartData> displayedData = <ChartData>[].obs;
 
-    chartData.add(
-      ChartData(category, value)
-    );
-    update();
+  var currentIndex = 0.obs;
+
+  final int displayedDataPoints = 3;
+
+  ChartController() {
+
+    fullData.addAll([
+      ChartData("T1", 30),
+      ChartData("T2", 40),
+      ChartData("T3", 35),
+      ChartData("T4", 45),
+      ChartData("T5", 25),
+      ChartData("T6", 55),
+    ]);
+    updateDisplayedData();
   }
 
-  void updateData() {
-    chartData = [
-      ChartData("A", 45),
-      ChartData("B", 25),
-      ChartData("C", 55),
-    ];
+
+  void updateDisplayedData() {
+    int endIndex = currentIndex.value + displayedDataPoints;
+
+    if (endIndex > fullData.length) {
+      endIndex = fullData.length;
+    }
+    displayedData.assignAll(
+      fullData.sublist(currentIndex.value, endIndex)
+    );
+
+  }
+
+  void fastForward() {
+    if(currentIndex.value + displayedDataPoints < fullData.length) {
+      currentIndex++;
+      updateDisplayedData();
+    }
+  }
+
+  void moveBackward() {
+    if(currentIndex.value > 0) {
+      currentIndex.value--;
+      updateDisplayedData();
+    }
+  }
+
+  void reset() {
+    currentIndex.value = 0;
+    updateDisplayedData();
   }
 
 }
