@@ -18,6 +18,9 @@ dependencies:
   # chart
   syncfusion_flutter_charts: ^28.2.9
 
+  # database
+  hive_ce: ^2.10.1
+
   # Utility
   http: ^1.3.0
   logger: ^2.5.0

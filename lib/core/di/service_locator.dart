@@ -1,12 +1,12 @@
 import 'package:get_it/get_it.dart';
-import '../../common/app_service.dart';
-import '../../features/charts/controller/chart_controller.dart';
+import 'package:pdu_mobile_rto_app/data/services/hive_service.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 
 final locator = GetIt.instance;
 
-void setup() {
+void dependencyInjectionSetup() {
 
-    locator.registerLazySingleton(() => ChartController());
-
+    locator.registerSingleton(() => HiveService());
+    locator.registerLazySingleton(() => DrillingController());
 
 }
