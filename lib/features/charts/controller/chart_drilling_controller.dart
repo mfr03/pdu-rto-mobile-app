@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/chart_drilling_data.dart';
+// import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 class DrillingController extends GetxController {
@@ -12,27 +14,57 @@ class DrillingController extends GetxController {
 
   final int displayedDataPoints = 20;
 
-
   var currentIndex = 0.obs;
 
-  DrillingController() {
+  final PduApi _api = PduApi();
 
-    fullData.addAll(_generateDummyData());
+  DrillingController() {
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+
+    final initialData = await _api.fetchDrillingData(
+      count: 20,
+      forward: true,
+      referenceTime: DateTime.now().subtract(const Duration(minutes: 20)),
+    );
+
+    fullData.addAll(initialData);
     updateDisplayedData();
   }
 
-  void updateDisplayedData() {
-    int endIndex = currentIndex.value + displayedDataPoints;
-    if (endIndex > fullData.length) {
-      endIndex = fullData.length;
-    }
+  Future<void> _loadMoreData() async {
+    final newData = await _api.fetchDrillingData(
+      count: 10,
+      forward: true,
+      referenceTime: fullData.last.dateTime,
+    );
+    fullData.addAll(newData);
+  }
 
-    if (currentIndex.value < fullData.length) {
+  Future<void> _loadHistoricalData() async {
+    final newData = await _api.fetchDrillingData(
+      count: 10,
+      forward: false,
+      referenceTime: fullData.first.dateTime,
+    );
+    fullData.insertAll(0, newData);
+  }
+
+  void updateDisplayedData() {
+    final endIndex = currentIndex.value + displayedDataPoints;
+    if (endIndex > fullData.length) {
+      _loadMoreData().then((_) {
+        displayedData.assignAll(
+          fullData.sublist(currentIndex.value, endIndex),
+        );
+      });
+    } else {
       displayedData.assignAll(
         fullData.sublist(currentIndex.value, endIndex),
       );
     }
-
   }
 
   void fastForward() {
@@ -47,6 +79,11 @@ class DrillingController extends GetxController {
     if (currentIndex.value > 0) {
       currentIndex.value--;
       updateDisplayedData();
+    } else {
+      _loadHistoricalData().then((_) {
+        currentIndex.value = 0;
+        updateDisplayedData();
+      });
     }
   }
 

@@ -11,6 +11,7 @@ class SingleChartPage extends StatefulWidget {
   final String mapString;
   final Map<String, num Function(DrillingData)> variableMap;
   final DrillingController controller;
+  final Map<String, Color> colorMap;
 
   const SingleChartPage({
     super.key,
@@ -18,6 +19,7 @@ class SingleChartPage extends StatefulWidget {
     required this.mapString,
     required this.variableMap,
     required this.controller,
+    required this.colorMap,
   });
 
   @override
@@ -68,6 +70,7 @@ class _SingleChartPageState extends State<SingleChartPage>
       zoomPanBehavior: ZoomPanBehavior(),
       series: widget.variableMap.entries.map<LineSeries<DrillingData, DateTime>>((entry) {
         return LineSeries<DrillingData, DateTime>(
+          color: widget.colorMap[entry.key], // Add color mapping
           name: entry.key,
           dataSource: dataList,
           xValueMapper: (d, _) => d.dateTime,

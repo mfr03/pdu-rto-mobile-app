@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/common/components/colored_text.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
 import 'package:pdu_mobile_rto_app/utils/theme/text_theme.dart';
 import 'package:pdu_mobile_rto_app/utils/theme/theme.dart';
-import '../../model/ParameterItem.dart';
+import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
+import 'package:flutter/foundation.dart';
+
+import 'edit_parameter_dialog.dart';
 
 class ParameterDashboard extends StatefulWidget {
   final int parameterAmount;
   final int activeIndex;
   final List<ParameterItem> parameters;
   final ValueChanged<int>? onCardTap;
+  final Box<ParameterItem> parameterBox;
 
   const ParameterDashboard({
     Key? key,
     required this.parameterAmount,
     required this.activeIndex,
     required this.parameters,
+    required this.parameterBox,
     this.onCardTap,
   }) : super(key: key);
 
@@ -29,9 +35,32 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _showEditDialog(ParameterItem parameter) {
+    showDialog(
+      context: context,
+      builder: (context) => EditParameterDialog(
+        parameter: parameter,
+        parameterBox: widget.parameterBox,
+        onSaved: () {
+          // Force parent rebuild after save
+          if (mounted) {
+            setState(() {
+            });
+          }
+        },
+      ),
+    );
   }
 
   void _showPlaceholderDialog(String message) {
@@ -85,7 +114,6 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                       ),
                     ),
                   ),
-
                 Expanded(
                   child: GestureDetector(
                     onTap: () => _showPlaceholderDialog('Add Tracks'),
@@ -110,15 +138,19 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                 decoration: CAppTheme.elevatedContainer,
                 padding: const EdgeInsets.only(bottom: 8),
                 child: SizedBox(
-                  height: 200,
+                  height: 200, // Keep fixed height but make content scrollable
                   child: Scrollbar(
                     controller: _scrollController,
                     thumbVisibility: true,
-                    child: SingleChildScrollView(
+                    child: ListView.builder(
                       controller: _scrollController,
-                      child: Column(
-                        children: [
-                          for (int i = 0; i < widget.parameters.length; i++) ...[
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount:  widget.parameters.length,
+                      itemBuilder: (context, index) {
+                        final param = widget.parameters[index];
+                        return Column(
+                          key: ValueKey(param.name + param.color.toString()),
+                          children: [
                             Padding(
                               padding: CAppTheme.parameterDashboardPadding,
                               child: Row(
@@ -126,23 +158,20 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                                 children: [
                                   Row(
                                     children: [
-                                      Circle(
-                                        widget.parameters[i].color,
-                                        CSizes.parameterDashboardCircleSize,
-                                      ),
+                                      Circle(param.color, CSizes.parameterDashboardCircleSize),
                                       const SizedBox(width: 16),
                                       Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           ColoredText(
-                                            text: widget.parameters[i].name,
-                                            textColor: widget.parameters[i].color,
+                                            text: param.name,
+                                            textColor: param.color,
                                             textSize: CSizes.parameterDashboardNumberTextSize + 1,
                                             isBold: true,
                                           ),
                                           ColoredText(
-                                            text: widget.parameters[i].value,
-                                            textColor: widget.parameters[i].color,
+                                            text: param.value,
+                                            textColor: param.color,
                                             textSize: CSizes.parameterDashboardNumberTextSize + 1,
                                             isBold: true,
                                           ),
@@ -150,26 +179,16 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                                       ),
                                     ],
                                   ),
-
-                                  // Settings icon, clickable
-                                  GestureDetector(
-                                    onTap: () => _showPlaceholderDialog('Parameter Settings'),
-                                    child: const Icon(
-                                      Icons.settings,
-                                      color: CColors.primaryColor,
-                                    ),
+                                  IconButton(
+                                    icon: const Icon(Icons.settings, color: CColors.primaryColor),
+                                    onPressed: () => _showEditDialog(param),
                                   ),
                                 ],
                               ),
-                            ),
-                            if (i < widget.parameters.length - 1)
-                              const Divider(
-                                color: Color(0xFFF2F2F2),
-                                thickness: 1,
-                              ),
+                            )
                           ],
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),

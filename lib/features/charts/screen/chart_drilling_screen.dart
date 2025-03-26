@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/parameter_dashboard.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/chart_drilling_data.dart';
 import '../../../utils/constants/colors.dart';
 import '../components/widget/single_chart_page.dart';
 import '../components/widget/single_depth_chart_page.dart';
-import '../model/ParameterItem.dart';
+import '../model/parameter_item.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:get_it/get_it.dart';
 
 class DrillingChartScreen extends StatefulWidget {
@@ -18,93 +20,106 @@ class DrillingChartScreen extends StatefulWidget {
 
 class _DrillingChartScreenState extends State<DrillingChartScreen> {
   final DrillingController controller = GetIt.instance<DrillingController>();
+  Box<ParameterItem>? parameterBox;
+  List<ParameterItem> mechanicalParams = [];
+  List<ParameterItem> mudParams = [];
+  List<ParameterItem> gasParams = [];
+  List<ParameterItem> tempParams = [];
+  bool _isDataLoaded = false;
+  StreamSubscription<BoxEvent>? _parameterBoxSubscription;
+  bool _isDashboardVisible = true;
 
-  // For the bottom nav
+  Object _timeChartPagesKey = Object();
+  Object _depthChartPagesKey = Object();
+
+  // Navigation state
   int _selectedIndex = 0;
+  late final ValueNotifier<int> _timePageNotifier;
+  late final ValueNotifier<int> _depthPageNotifier;
 
-  // --- TIME-BASED CHART STUFF ---
+  // Controllers
   final PageController _timePageController = PageController();
-  int _timePageViewIndex = 0;
-  late final List<Widget> _timeChartPages;
-
-  // --- DEPTH-BASED CHART STUFF ---
   final PageController _depthPageController = PageController();
-  int _depthPageViewIndex = 0;
-  late final List<Widget> _depthChartPages;
 
   @override
   void initState() {
     super.initState();
+    _timePageNotifier = ValueNotifier(0);
+    _depthPageNotifier = ValueNotifier(0);
 
-    // Listen to the time-based PageView
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeHiveData();
+      _setupPageListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _parameterBoxSubscription?.cancel();
+    super.dispose();
+  }
+
+  List<Widget> get _timeChartPages {
+    return [
+      _buildChartPage('Mechanical Track', 'mechanical', _mechanicalVariables),
+      _buildChartPage('Mud/Fluid Track', 'mud', _mudVariables),
+      _buildChartPage('Gas Track', 'gas', _gasVariables),
+      _buildChartPage('Temperature Track', 'temperature', _tempVariables),
+    ];
+  }
+
+  List<Widget> get _depthChartPages {
+    return [
+      _buildDepthChartPage('Depth-based Mechanical', _mechanicalVariables),
+      _buildDepthChartPage('Depth-based Mud/Fluid', _mudVariables),
+      _buildDepthChartPage('Depth-based Gas', _gasVariables),
+      _buildDepthChartPage('Depth-based Temperature', _tempVariables),
+    ];
+  }
+
+  Widget _buildChartPage(String title, String trackType,
+      Map<String, num Function(DrillingData)> variables) {
+    final colorMap = {
+      for (var param in parameterBox!.values.where((p) => p.trackType == trackType))
+        param.name: param.color
+    };
+
+    return SingleChartPage(
+      key: ValueKey('$trackType-$_timeChartPagesKey'),
+      title: title,
+      mapString: trackType,
+      variableMap: variables,
+      controller: controller,
+      colorMap: colorMap,
+    );
+  }
+
+  Widget _buildDepthChartPage(String title,
+      Map<String, num Function(DrillingData)> variables) {
+    final colorMap = {
+      for (var param in parameterBox!.values.where((p) => p.trackType == title.split(' ').last.toLowerCase()))
+        param.name: param.color
+    };
+
+    return SingleDepthChartPage(
+      key: ValueKey('${title.split(' ').last}-$_depthChartPagesKey'),
+      title: title,
+      variableMap: variables,
+      controller: controller,
+      colorMap: colorMap,
+    );
+  }
+
+  void _setupPageListeners() {
     _timePageController.addListener(() {
-      final page = _timePageController.page ?? 0.0;
-      final newIndex = page.round();
-      if (newIndex != _timePageViewIndex) {
-        setState(() => _timePageViewIndex = newIndex);
-      }
+      final newIndex = (_timePageController.page ?? 0).round();
+      _timePageNotifier.value = newIndex;
     });
 
-    // Listen to the depth-based PageView
     _depthPageController.addListener(() {
-      final page = _depthPageController.page ?? 0.0;
-      final newIndex = page.round();
-      if (newIndex != _depthPageViewIndex) {
-        setState(() => _depthPageViewIndex = newIndex);
-      }
+      final newIndex = (_depthPageController.page ?? 0).round();
+      _depthPageNotifier.value = newIndex;
     });
-
-    // Build the list of time-based chart pages
-    _timeChartPages = [
-      SingleChartPage(
-        title: 'Mechanical Track',
-        mapString: 'mechanical',
-        variableMap: _mechanicalVariables,
-        controller: controller,
-      ),
-      SingleChartPage(
-        title: 'Mud/Fluid Track',
-        mapString: 'mud',
-        variableMap: _mudVariables,
-        controller: controller,
-      ),
-      SingleChartPage(
-        title: 'Gas Track',
-        mapString: 'gas',
-        variableMap: _gasVariables,
-        controller: controller,
-      ),
-      SingleChartPage(
-        title: 'Temperature Track',
-        mapString: 'temperature',
-        variableMap: _tempVariables,
-        controller: controller,
-      ),
-    ];
-
-    // Build the list of depth-based chart pages
-    _depthChartPages = [
-      SingleDepthChartPage(
-        title: 'Depth-based Mechanical',
-        variableMap: _mechanicalVariables,
-        controller: controller,
-      ),
-      SingleDepthChartPage(
-        title: 'Depth-based Mud/Fluid',
-        variableMap: _mudVariables,
-        controller: controller,
-      ),
-      SingleDepthChartPage(
-        title: 'Depth-based Gas',
-        variableMap: _gasVariables,
-        controller: controller,
-      ),
-      SingleDepthChartPage(
-        title: 'Depth-based Temperature',
-        variableMap: _tempVariables,
-        controller: controller,
-      ),
-    ];
   }
 
   Widget _buildChartAndParameterDashboard() {
@@ -112,106 +127,32 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       child: Column(
         children: [
           SizedBox(
-            height: MediaQuery.of(context).size.height * 0.55,
+            height: _isDashboardVisible
+                ? MediaQuery.of(context).size.height * 0.55
+                : MediaQuery.of(context).size.height - 120,
             child: Stack(
               children: [
-                PageView(
-                  controller: _timePageController,
-                  children: _timeChartPages,
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.settings),
-                          color: CColors.primaryColor,
-                          onPressed: () {
-                            // track settings
-                          },
-                          tooltip: 'Track Settings',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.fast_rewind),
-                          onPressed: controller.moveBackward,
-                          tooltip: 'Backward',
-                          color: CColors.primaryColor,
-                        ),
-                        const SizedBox(height: 8),
-                        IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: controller.reset,
-                          tooltip: 'Refresh',
-                          color: CColors.primaryColor,
-                        ),
-                        const SizedBox(height: 8),
-                        IconButton(
-                          icon: const Icon(Icons.fast_forward),
-                          onPressed: controller.fastForward,
-                          tooltip: 'Forward',
-                          color: CColors.primaryColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                PageView(controller: _timePageController, children: _timeChartPages),
+                _buildControlButtons(_timePageController, controller),
               ],
             ),
           ),
-          Obx(() {
-            return ParameterDashboard(
-              parameterAmount: _timeChartPages.length,
-              activeIndex: _timePageViewIndex + 1,
-              parameters: _buildDashboardParamsForTime(_timePageViewIndex),
-              onCardTap: (int tappedIndex) {
-                _timePageController.jumpToPage(tappedIndex - 1);
+          if (_isDashboardVisible)
+            ValueListenableBuilder<int>(
+              valueListenable: _timePageNotifier,
+              builder: (context, pageIndex, _) {
+                return ParameterDashboard(
+                  parameterAmount: _timeChartPages.length,
+                  activeIndex: pageIndex + 1,
+                  parameters: _buildDashboardParams(pageIndex),
+                  parameterBox: parameterBox!,
+                  onCardTap: (tappedIndex) => _handlePageTap(tappedIndex, _timePageController),
+                );
               },
-            );
-          }),
+            ),
         ],
       ),
     );
-  }
-
-  List<ParameterItem> _buildDashboardParamsForTime(int pageIndex) {
-    if (controller.displayedData.isEmpty) {
-      return [const ParameterItem(name: 'No data', value: '-', color: Colors.grey)];
-    }
-    final lastData = controller.displayedData.last;
-
-    Map<String, num Function(DrillingData)> selectedMap;
-    Map<String, Color> colorMap;
-
-    switch (pageIndex) {
-      case 0:
-        selectedMap = _mechanicalVariables;
-        colorMap = _mechanicalColors;
-        break;
-      case 1:
-        selectedMap = _mudVariables;
-        colorMap = _mudColors;
-        break;
-      case 2:
-        selectedMap = _gasVariables;
-        colorMap = _gasColors;
-        break;
-      case 3:
-        selectedMap = _tempVariables;
-        colorMap = _tempColors;
-        break;
-      default:
-        return [];
-    }
-
-    return selectedMap.entries.map<ParameterItem>((entry) {
-      final rawValue = entry.value(lastData);
-      final valueString = rawValue.toStringAsFixed(1);
-      final varColor = colorMap[entry.key] ?? Colors.blue;
-      return ParameterItem(name: entry.key, value: valueString, color: varColor);
-    }).toList();
   }
 
   Widget _buildDepthChartAndParameterDashboard() {
@@ -219,146 +160,128 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       child: Column(
         children: [
           SizedBox(
-            height: MediaQuery.of(context).size.height * 0.55,
+            height: _isDashboardVisible
+                ? MediaQuery.of(context).size.height * 0.55
+                : MediaQuery.of(context).size.height - 120,
             child: Stack(
               children: [
-                PageView(
-                  controller: _depthPageController,
-                  children: _depthChartPages,
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.settings),
-                          color: CColors.primaryColor,
-                          onPressed: () {
-                            // track settings
-                          },
-                          tooltip: 'Track Settings',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.fast_rewind),
-                          onPressed: controller.moveBackward,
-                          tooltip: 'Backward',
-                          color: CColors.primaryColor,
-                        ),
-                        const SizedBox(height: 8),
-                        IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: controller.reset,
-                          tooltip: 'Refresh',
-                          color: CColors.primaryColor
-                        ),
-                        const SizedBox(height: 8),
-                        IconButton(
-                          icon: const Icon(Icons.fast_forward),
-                          onPressed: controller.fastForward,
-                          tooltip: 'Forward',
-                          color: CColors.primaryColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                PageView(controller: _depthPageController, children: _depthChartPages),
+                _buildControlButtons(_depthPageController, controller),
               ],
             ),
           ),
-          Obx(() {
-            return ParameterDashboard(
-              parameterAmount: _depthChartPages.length,
-              activeIndex: _depthPageViewIndex + 1,
-              parameters: _buildDashboardParamsForDepth(_depthPageViewIndex),
-              onCardTap: (int tappedIndex) {
-                _depthPageController.jumpToPage(tappedIndex - 1);
+          if (_isDashboardVisible)
+            ValueListenableBuilder<int>(
+              valueListenable: _depthPageNotifier,
+              builder: (context, pageIndex, _) {
+                return ParameterDashboard(
+                  parameterAmount: _depthChartPages.length,
+                  activeIndex: pageIndex + 1,
+                  parameters: _buildDashboardParams(pageIndex),
+                  parameterBox: parameterBox!,
+                  onCardTap: (tappedIndex) => _handlePageTap(tappedIndex, _depthPageController),
+                );
               },
-            );
-          }),
+            ),
         ],
       ),
     );
   }
 
-  List<ParameterItem> _buildDashboardParamsForDepth(int pageIndex) {
-    if (controller.displayedData.isEmpty) {
-      return [const ParameterItem(name: 'No data', value: '-', color: Colors.grey)];
-    }
+  List<ParameterItem> _buildDashboardParams(int pageIndex) {
+    if (controller.displayedData.isEmpty) return [];
+
+    final trackType = _getTrackType(pageIndex);
+    final variableMap = _getVariableMap(pageIndex);
     final lastData = controller.displayedData.last;
 
-    Map<String, num Function(DrillingData)> selectedMap;
-    Map<String, Color> colorMap;
-
-    switch (pageIndex) {
-      case 0:
-        selectedMap = _mechanicalVariables;
-        colorMap = _mechanicalColors;
-        break;
-      case 1:
-        selectedMap = _mudVariables;
-        colorMap = _mudColors;
-        break;
-      case 2:
-        selectedMap = _gasVariables;
-        colorMap = _gasColors;
-        break;
-      case 3:
-        selectedMap = _tempVariables;
-        colorMap = _tempColors;
-        break;
-      default:
-        return [];
-    }
-
-    return selectedMap.entries.map<ParameterItem>((entry) {
-      final rawValue = entry.value(lastData);
-      final valueString = rawValue.toStringAsFixed(1);
-      final varColor = colorMap[entry.key] ?? Colors.blue;
-      return ParameterItem(name: entry.key, value: valueString, color: varColor);
-    }).toList();
+    return parameterBox!.values
+        .where((p) => p.trackType == trackType)
+        .map((param) => param.copyWith(
+      value: variableMap[param.name]!(lastData).toStringAsFixed(1),
+      updatedAt: DateTime.now(),
+      color: param.color
+    ))
+        .toList();
   }
 
-  // For bottom nav
-  void _onNavBarTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  String _getTrackType(int pageIndex) => ['mechanical', 'mud', 'gas', 'temperature'][pageIndex];
+
+  Widget _buildControlButtons(PageController controller, DrillingController drillingController) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              color: CColors.primaryColor,
+              onPressed: () {},
+            ),
+            IconButton(
+              icon: const Icon(Icons.fast_rewind),
+              onPressed: () => setState(() => drillingController.moveBackward()),
+              color: CColors.primaryColor,
+            ),
+            const SizedBox(height: 8),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: drillingController.reset,
+              color: CColors.primaryColor,
+            ),
+            const SizedBox(height: 8),
+            IconButton(
+              icon: const Icon(Icons.fast_forward),
+              onPressed: () => setState(() => drillingController.fastForward()),
+              color: CColors.primaryColor,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  // Example color maps for each track type
-  Map<String, Color> get _mechanicalColors => {
-    'BitDepth (m)': Colors.green,
-    'WOB (klb)': Colors.purple,
-    'Torque (klb.ft)': Colors.blue,
-    'RPM': Colors.red,
-    'Hkld (klb)': Colors.teal,
-  };
+  void _handlePageTap(int tappedIndex, PageController controller) =>
+      controller.jumpToPage(tappedIndex - 1);
 
-  Map<String, Color> get _mudColors => {
-    'MudFlowIn (gpm)': Colors.red,
-    'MudFlowOutp (gpm)': Colors.blue,
-    'MudCondIn (mmho)': Colors.green,
-    'MudCondOut (mmho)': Colors.purple,
-    'SpPress (Psi)': Colors.orange,
-    'TankVolTot (bbl)': Colors.brown,
-  };
+  void _onNavBarTapped(int index) => setState(() => _selectedIndex = index);
 
-  Map<String, Color> get _gasColors => {
-    'H2S_1 (ppm)': Colors.deepOrange,
-    'CO2_1 (%)': Colors.green,
-    'Gas (%)': Colors.red,
-  };
+  // Variable mappings
+  Map<String, num Function(DrillingData)> get _mechanicalVariables =>
+      _createVariableMap('mechanical', _staticMechanicalVariables);
 
-  Map<String, Color> get _tempColors => {
-    'MudTempIn (C)': Colors.blue,
-    'MudTempOut (C)': Colors.red,
-  };
+  Map<String, num Function(DrillingData)> get _mudVariables =>
+      _createVariableMap('mud', _staticMudVariables);
 
-  // Example variable maps for each track
-  Map<String, num Function(DrillingData)> get _mechanicalVariables => {
+  Map<String, num Function(DrillingData)> get _gasVariables =>
+      _createVariableMap('gas', _staticGasVariables);
+
+  Map<String, num Function(DrillingData)> get _tempVariables =>
+      _createVariableMap('temperature', _staticTempVariables);
+
+  Map<String, num Function(DrillingData)> _createVariableMap(
+      String trackType, Map<String, num Function(DrillingData)> staticMap) {
+    return {
+      for (var param in parameterBox!.values.where((p) => p.trackType == trackType))
+        if (staticMap.containsKey(param.name))
+          param.name: staticMap[param.name]!,
+    };
+  }
+
+  Map<String, num Function(DrillingData)> _getVariableMap(int pageIndex) {
+    final List<Map<String, num Function(DrillingData)>> maps = [
+      _mechanicalVariables,
+      _mudVariables,
+      _gasVariables,
+      _tempVariables
+    ];
+    return maps[pageIndex];
+  }
+
+  // Static variable definitions
+  static final Map<String, num Function(DrillingData)> _staticMechanicalVariables = {
     'BitDepth (m)': (d) => d.bitDepth,
     'WOB (klb)': (d) => d.wob,
     'Torque (klb.ft)': (d) => d.torque,
@@ -366,7 +289,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     'Hkld (klb)': (d) => d.hkld,
   };
 
-  Map<String, num Function(DrillingData)> get _mudVariables => {
+  static final Map<String, num Function(DrillingData)> _staticMudVariables = {
     'MudFlowIn (gpm)': (d) => d.mudFlowIn,
     'MudFlowOutp (gpm)': (d) => d.mudFlowOutp,
     'MudCondIn (mmho)': (d) => d.mudCondIn,
@@ -375,73 +298,106 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     'TankVolTot (bbl)': (d) => d.tankVolTot,
   };
 
-  Map<String, num Function(DrillingData)> get _gasVariables => {
+  static final Map<String, num Function(DrillingData)> _staticGasVariables = {
     'H2S_1 (ppm)': (d) => d.h2s_1,
     'CO2_1 (%)': (d) => d.co2_1,
     'Gas (%)': (d) => d.gas,
   };
 
-  Map<String, num Function(DrillingData)> get _tempVariables => {
+  static final Map<String, num Function(DrillingData)> _staticTempVariables = {
     'MudTempIn (C)': (d) => d.mudTempIn,
     'MudTempOut (C)': (d) => d.mudTempOut,
   };
+  BottomNavigationBar _buildBottomNav() => BottomNavigationBar(
+    currentIndex: _selectedIndex,
+    onTap: _onNavBarTapped,
+    type: BottomNavigationBarType.fixed,
+    backgroundColor: Colors.white,
+    showSelectedLabels: false,
+    showUnselectedLabels: false,
+    items: [
+      _buildNavItem(Icons.show_chart, 0),
+      _buildNavItem(Icons.show_chart_sharp, 1),
+      _buildNavItem(Icons.chat_sharp, 2),
+      _buildNavItem(Icons.notifications, 3),
+    ],
+  );
 
-  @override
-  Widget build(BuildContext context) {
-    // Each item here is a different "tab" or screen
-    final screens = [
-      _buildChartAndParameterDashboard(),     // Time-based
-      _buildDepthChartAndParameterDashboard(),// Depth-based
-      const Center(child: Text('Placeholder 3')),
-      const Center(child: Text('Placeholder 4')),
-    ];
-
-    return Scaffold(
-      body: screens[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onNavBarTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        items: [
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(Icons.show_chart, 0),
-            label: 'Chart',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(Icons.show_chart_sharp, 1),
-            label: 'Depth',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(Icons.chat_sharp, 2),
-            label: 'Screen3',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(Icons.notifications, 3),
-            label: 'Screen4',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavIcon(IconData icon, int index) {
-    final isActive = (index == _selectedIndex);
-    return Column(
+  BottomNavigationBarItem _buildNavItem(IconData icon, int index) => BottomNavigationBarItem(
+    icon: Column(
       mainAxisSize: MainAxisSize.max,
       children: [
-        Icon(
-          icon,
-          color: CColors.primaryColor,
-        ),
+        Icon(icon, color: CColors.primaryColor),
         Container(
           height: 2,
           width: 16,
-          color: isActive ? CColors.primaryColor : Colors.transparent,
+          color: _selectedIndex == index ? CColors.primaryColor : Colors.transparent,
         ),
       ],
+    ),
+    label: '',
+  );
+
+  Future<void> _initializeHiveData() async {
+    try {
+      parameterBox = await HiveService.openParameterBox();
+      _parameterBoxSubscription = parameterBox!.watch().listen((_) {
+        _updateParameterLists();
+        setState(() {
+          // Reset chart page keys to force recreation
+          _timeChartPagesKey = Object();
+          _depthChartPagesKey = Object();
+        });
+      });
+      setState(() => _isDataLoaded = true);
+    } catch (e) {
+      debugPrint("Hive error: $e");
+    }
+  }
+
+  void _updateParameterLists() {
+    mechanicalParams = parameterBox!.values.where((p) => p.trackType == 'mechanical').toList();
+
+    debugPrint('Mechanical Parameters: ${mechanicalParams.map((p) => p.name).toList()}');
+
+    mudParams = parameterBox!.values.where((p) => p.trackType == 'mud').toList();
+    gasParams = parameterBox!.values.where((p) => p.trackType == 'gas').toList();
+    tempParams = parameterBox!.values.where((p) => p.trackType == 'temperature').toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isDataLoaded) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text('Initializing drilling data...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: [
+        _buildChartAndParameterDashboard(),
+        _buildDepthChartAndParameterDashboard(),
+        const Center(child: Text('Placeholder 3')),
+        const Center(child: Text('Placeholder 4')),
+      ][_selectedIndex],
+      bottomNavigationBar: _buildBottomNav(),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: CColors.primaryColor,
+        onPressed: () => setState(() => _isDashboardVisible = !_isDashboardVisible),
+        child: Icon(
+          _isDashboardVisible ? Icons.visibility_off : Icons.visibility,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 }

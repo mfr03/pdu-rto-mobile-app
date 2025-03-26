@@ -9,12 +9,14 @@ class SingleDepthChartPage extends StatefulWidget {
   final String title;
   final Map<String, num Function(DrillingData)> variableMap;
   final DrillingController controller;
+  final Map<String, Color> colorMap;
 
   const SingleDepthChartPage({
     Key? key,
     required this.title,
     required this.variableMap,
     required this.controller,
+    required this.colorMap,
   }) : super(key: key);
 
   @override
@@ -32,9 +34,6 @@ class _SingleDepthChartPageState extends State<SingleDepthChartPage>
 
     return Obx(() {
       final dataList = widget.controller.displayedData.toList();
-      // Sort by bitDepth so lines render in ascending or descending depth order
-      dataList.sort((a, b) => a.bitDepth.compareTo(b.bitDepth));
-
       return Container(
         padding: const EdgeInsets.all(8),
         child: _buildDepthChart(dataList),
@@ -75,6 +74,7 @@ class _SingleDepthChartPageState extends State<SingleDepthChartPage>
       // Each entry in variableMap yields one line
       series: widget.variableMap.entries.map((entry) {
         return LineSeries<DrillingData, num>(
+          color: widget.colorMap[entry.key],
           name: entry.key,
           dataSource: dataList,
           xValueMapper: (d, _) => d.bitDepth,
