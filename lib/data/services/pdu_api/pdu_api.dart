@@ -1,57 +1,110 @@
 import 'package:flutter/cupertino.dart';
-
-import '../../../features/charts/model/chart_drilling_data.dart';
 import 'package:http/http.dart' as http;
-import 'model/well_active.dart';
 import 'dart:convert';
-
+import 'model/drilling_data.dart';
+import 'model/well_active.dart';
 
 class PduApi {
-
   static const String _baseUrl = "pdumitradome.id";
   static const String _wellActiveEndpoint = "/dome_api/wells-active";
   static const String _realtimeDataEndpoint = "/dome_api/realtime-data";
 
-
+  /// Fetch the list of active wells
   static Future<List<WellActive>> fetchActiveWells() async {
     final url = Uri.http(_baseUrl, _wellActiveEndpoint);
 
     try {
       final response = await http.get(url);
-
       debugPrint(response.body);
 
       if (response.statusCode == 200) {
-        // Decode the response body
         final Map<String, dynamic> data = jsonDecode(response.body);
-
-        // Check if the response contains the 'result' list
         if (data["result"] != null) {
           final List<dynamic> results = data["result"];
-          // Map each element in `results` to a `WellActive` instance
           return results.map((json) => WellActive.fromJson(json)).toList();
         } else {
-          // The JSON structure is unexpected
           throw Exception("Key 'result' not found in JSON.");
         }
       } else {
-        // The server did not return a 200 OK response
         throw Exception("Failed to load wells. Status code: ${response.statusCode}");
       }
     } catch (e) {
-      // Rethrow any errors
       throw Exception(e.toString());
     }
   }
 
-  static Future<void> fetchRealtimeData({
+  static Future<List<DrillingData>> fetchRealtimeDataIncrement({
+    required WellActive wellActive,
+  }) async {
+    // 1) Parse the well’s start_date (e.g. "2023-12-01" -> DateTime(2023,12,1))
+    final DateTime rawStartDate = DateTime.parse(wellActive.startDate);
+
+    // Force time to 00:00:00 that day
+    DateTime currentStartTime = DateTime(
+      rawStartDate.year,
+      rawStartDate.month,
+      rawStartDate.day,
+      0,
+      0,
+      0,
+    );
+
+    // Also parse end_date if you want to stop eventually
+    final DateTime rawEndDate = DateTime.parse(wellActive.endDate);
+
+    const Duration step = Duration(minutes: 15);
+    int maxIterations = 500; // safety limit
+
+    while (maxIterations > 0) {
+      maxIterations--;
+
+      final DateTime windowEnd = currentStartTime.add(step);
+
+      // Build the EXACT strings "yyyy-MM-dd HH:mm:ss"
+      final String timeStart = _formatDateTime(currentStartTime);
+      final String timeEnd = _formatDateTime(windowEnd);
+
+      debugPrint("Trying $timeStart -> $timeEnd");
+
+      // Make a single request with these strings
+      final List<DrillingData> dataList = await _fetchRealtimeDataOnce(
+        token: wellActive.isApiToken,
+        timeStart: timeStart,
+        timeEnd: timeEnd,
+      );
+
+      // If we found data, update wellActive’s timeStart/timeEnd with these
+      if (dataList.isNotEmpty) {
+        debugPrint("Data found for $timeStart -> $timeEnd");
+        wellActive.updateTimeRange(timeStart, timeEnd);
+        return dataList;
+      } else {
+        debugPrint("No data for $timeStart -> $timeEnd");
+      }
+
+      // Increment to the next 15-minute window
+      currentStartTime = windowEnd;
+
+      // Stop if we passed the wellActive.endDate
+      if (currentStartTime.isAfter(rawEndDate)) {
+        debugPrint("Reached endDate, stopping search.");
+        break;
+      }
+    }
+
+    // No data found within loop constraints
+    return <DrillingData>[];
+  }
+
+  /// Single GET request that sends JSON in the body with token/timeStart/timeEnd
+  static Future<List<DrillingData>> _fetchRealtimeDataOnce({
     required String token,
     required String timeStart,
     required String timeEnd,
-}) async {
-
+  }) async {
     final uri = Uri.https(_baseUrl, _realtimeDataEndpoint);
 
+    // Non-standard GET with a JSON body
     final request = http.Request("GET", uri)
       ..headers["Content-Type"] = "application/json"
       ..body = jsonEncode({
@@ -61,68 +114,63 @@ class PduApi {
       });
 
     try {
-
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-        if (response.statusCode == 200) {
-          // For now, just print the response
-          debugPrint("Realtime Data (Success): ${response.body}");
+      if (response.statusCode == 200) {
+        final jsonMap = jsonDecode(response.body);
+
+        // Expecting: { "result": [ { "dt": "...", ...} ] }
+        if (jsonMap is Map && jsonMap['result'] is List) {
+          final List<dynamic> results = jsonMap['result'];
+          return results.map((item) => DrillingData.fromJson(item)).toList();
         } else {
-          debugPrint("Realtime Data (Error): ${response.statusCode}, ${response.body}");
+          return <DrillingData>[];
         }
-      } catch (e) {
-        debugPrint("Realtime Data (Exception): $e");
+      } else {
+        // e.g. 404 or 400
+        debugPrint("Status ${response.statusCode}: ${response.body}");
+        return <DrillingData>[];
       }
+    } catch (e) {
+      debugPrint("Exception in _fetchRealtimeDataOnce: $e");
+      return <DrillingData>[];
     }
-
-  DateTime? _lastGeneratedTime;
-  static double alwaysPlus = 0;
-  /// Generates data forward or backward in time based on direction
-  Future<List<DrillingData>> fetchDrillingData({
-    required int count,
-    required bool forward,
-    DateTime? referenceTime,
-  }) async {
-    final List<DrillingData> data = [];
-    final baseTime = referenceTime ?? DateTime.now();
-    final timeIncrement = forward ? 1 : -1;
-
-    for (int i = 0; i < count; i++) {
-      final time = baseTime.add(Duration(minutes: (i + 1) * timeIncrement));
-      data.add(_generateDataPoint(time, i));
-    }
-
-    _lastGeneratedTime = forward ? data.last.dateTime : data.first.dateTime;
-    return forward ? data : data.reversed.toList();
   }
 
-  DrillingData _generateDataPoint(DateTime time, int index) {
-    alwaysPlus += index * 5;
-    return DrillingData(
-      dateTime: time,
-      bitDepth: alwaysPlus,
-      scfm: 50 + index.toDouble(),
-      mudCondIn: 1000 + (index * 5).toDouble(),
-      blockPos: (index * 1.2),
-      wob: 10 + index.toDouble(),
-      ropi: 20 + (index * 0.5),
-      bvDepth: (index * 2.2),
-      mudCondOut: 900 + (index * 5).toDouble(),
-      torque: 5 + (index * 0.25),
-      rpm: 100 + (index % 5),
-      hkld: 15 + index.toDouble(),
-      logDepth: (index * 5).toDouble(),
-      h2s_1: index.toDouble(),
-      mudFlowOutp: 150.0 + index,
-      totSPM: 30.0 + index,
-      spPress: 800 + index.toDouble() * 2,
-      mudFlowIn: 200.0 + index,
-      co2_1: 0.5 + (index * 0.01),
-      gas: 1.0 + (index * 0.02),
-      mudTempIn: 30 + index * 0.1,
-      mudTempOut: 40 + index * 0.1,
-      tankVolTot: 500 + (index * 10),
+  static Future<List<DrillingData>> fetchMoreData({
+    required String token,
+    required DateTime referenceTime,
+    required bool forward,
+    int count = 15,
+  }) async {
+    DateTime start, end;
+    if (forward) {
+      start = referenceTime;
+      end = referenceTime.add(Duration(minutes: count));
+    } else {
+      start = referenceTime.subtract(Duration(minutes: count));
+      end = referenceTime;
+    }
+
+    final timeStartStr = _formatDateTime(start);
+    final timeEndStr   = _formatDateTime(end);
+
+    final dataList = await _fetchRealtimeDataOnce(
+      token: token,
+      timeStart: timeStartStr,
+      timeEnd: timeEndStr,
     );
+    return dataList;
+  }
+
+  /// Format "yyyy-MM-dd HH:mm:ss"
+  static String _formatDateTime(DateTime dt) {
+    return "${dt.year.toString().padLeft(4, '0')}-"
+        "${dt.month.toString().padLeft(2, '0')}-"
+        "${dt.day.toString().padLeft(2, '0')} "
+        "${dt.hour.toString().padLeft(2, '0')}:"
+        "${dt.minute.toString().padLeft(2, '0')}:"
+        "${dt.second.toString().padLeft(2, '0')}";
   }
 }

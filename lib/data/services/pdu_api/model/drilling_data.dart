@@ -1,4 +1,6 @@
 class DrillingData {
+
+  final Map<String, dynamic> rawData;
   final DateTime dateTime;
   final double bitDepth;
   final double scfm;
@@ -24,6 +26,7 @@ class DrillingData {
   final double tankVolTot;
 
   DrillingData({
+    required this.rawData,
     required this.dateTime,
     required this.bitDepth,
     required this.scfm,
@@ -50,28 +53,41 @@ class DrillingData {
   });
 
   factory DrillingData.fromJson(Map<String, dynamic> json) {
-    // Safely parse each field, fallback to 0.0 if invalid
-    // Convert "dt" to DateTime (assuming server uses "yyyy-MM-dd HH:mm:ss")
     final dateString = (json['dt'] ?? '') as String;
 
+    final naiveParsed = DateTime.parse(dateString);
+
+    final forcedNaive = DateTime(
+      naiveParsed.year,
+      naiveParsed.month,
+      naiveParsed.day,
+      naiveParsed.hour,
+      naiveParsed.minute,
+      naiveParsed.second,
+      naiveParsed.millisecond,
+      naiveParsed.microsecond,
+
+    );
+
     return DrillingData(
-      dateTime: DateTime.tryParse(dateString) ?? DateTime.now(),
+      rawData: json,
+      dateTime: forcedNaive,
       bitDepth: _toDouble(json['bitdepth']),
-      scfm: _toDouble(json['scfm']), // If your API doesn't have scfm, default to 0
+      scfm: _toDouble(json['scfm']),
       mudCondIn: _toDouble(json['mudcondin']),
       blockPos: _toDouble(json['blockpos']),
-      wob: _toDouble(json['woba']), // "woba" in JSON vs "wob" in code
+      wob: _toDouble(json['woba']),
       ropi: _toDouble(json['ropi']),
       bvDepth: _toDouble(json['deptbitv']),
       mudCondOut: _toDouble(json['mudcondout']),
-      torque: _toDouble(json['torqa']), // "torqa" or "torqx"? Check your JSON
+      torque: _toDouble(json['torqa']),
       rpm: _toDouble(json['rpm']),
-      hkld: _toDouble(json['hklda']), // "hklda" in your sample
+      hkld: _toDouble(json['hklda']),
       logDepth: _toDouble(json['logdepth']),
       h2s_1: _toDouble(json['h2s1']),
       mudFlowOutp: _toDouble(json['mudflowoutp']),
       totSPM: _toDouble(json['totspm']),
-      spPress: _toDouble(json['stppress']), // "stppress" in your sample
+      spPress: _toDouble(json['stppress']),
       mudFlowIn: _toDouble(json['mudflowin']),
       co2_1: _toDouble(json['co21']),
       gas: _toDouble(json['gas']),
@@ -81,8 +97,14 @@ class DrillingData {
     );
   }
 
+
   static double _toDouble(dynamic val) {
     if (val == null) return 0.0;
     return double.tryParse(val.toString()) ?? 0.0;
+  }
+
+  num value(String key) {
+    final val = rawData[key];
+    return val == null ? 0.0 : double.tryParse(val.toString()) ?? 0.0;
   }
 }

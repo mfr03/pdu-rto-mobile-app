@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
-import 'package:pdu_mobile_rto_app/features/charts/model/chart_drilling_data.dart';
-// import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+
+import '../../../data/services/pdu_api/model/well_active.dart';
 
 class DrillingController extends GetxController {
 
@@ -10,80 +12,104 @@ class DrillingController extends GetxController {
 
   final RxList<DrillingData> displayedData = <DrillingData>[].obs;
 
-  final RxMap<String, ChartSeriesController?> seriesControllers = <String, ChartSeriesController?>{}.obs;
+  final RxMap<String, ChartSeriesController?> seriesControllers = <
+      String,
+      ChartSeriesController?>{}.obs;
 
-  final int displayedDataPoints = 20;
+  final int displayedDataPoints = 12 * 15;
 
   var currentIndex = 0.obs;
 
   final PduApi _api = PduApi();
 
-  DrillingController() {
-    _initializeData();
-  }
-
-  Future<void> _initializeData() async {
-
-    final initialData = await _api.fetchDrillingData(
-      count: 20,
-      forward: true,
-      referenceTime: DateTime.now().subtract(const Duration(minutes: 20)),
+  Future<void> initializeData({
+    required WellActive wellActive
+  }) async {
+    final initialData = await PduApi.fetchRealtimeDataIncrement(
+        wellActive: wellActive
     );
 
+    fullData.clear();
     fullData.addAll(initialData);
     updateDisplayedData();
   }
 
-  Future<void> _loadMoreData() async {
-    final newData = await _api.fetchDrillingData(
-      count: 10,
-      forward: true,
-      referenceTime: fullData.last.dateTime,
-    );
-    fullData.addAll(newData);
-  }
-
-  Future<void> _loadHistoricalData() async {
-    final newData = await _api.fetchDrillingData(
-      count: 10,
-      forward: false,
-      referenceTime: fullData.first.dateTime,
-    );
-    fullData.insertAll(0, newData);
-  }
 
   void updateDisplayedData() {
     final endIndex = currentIndex.value + displayedDataPoints;
     if (endIndex > fullData.length) {
-      _loadMoreData().then((_) {
-        displayedData.assignAll(
-          fullData.sublist(currentIndex.value, endIndex),
-        );
-      });
-    } else {
       displayedData.assignAll(
-        fullData.sublist(currentIndex.value, endIndex),
-      );
-    }
-  }
-
-  void fastForward() {
-    if (currentIndex.value + displayedDataPoints < fullData.length) {
-      currentIndex.value++;
-      updateDisplayedData();
-    }
-  }
-
-
-  void moveBackward() {
-    if (currentIndex.value > 0) {
-      currentIndex.value--;
-      updateDisplayedData();
+          fullData.sublist(currentIndex.value, fullData.length));
     } else {
-      _loadHistoricalData().then((_) {
-        currentIndex.value = 0;
-        updateDisplayedData();
-      });
+      displayedData.assignAll(fullData.sublist(currentIndex.value, endIndex));
+    }
+    // displayedData.refresh();
+  }
+
+  Future<bool> fastForward({required WellActive wellActive}) async {
+
+    if (currentIndex.value + displayedDataPoints < fullData.length) {
+      // Move forward by one data point.
+      currentIndex.value+=12;
+      updateDisplayedData();
+      return true;
+    }
+    // No extra data exists locally; fetch the next 15 minutes of data (15 data points).
+    final DateTime refTime = displayedData.isNotEmpty
+        ? displayedData.last.dateTime
+        : DateTime.now();
+
+    final List<DrillingData> newData = await PduApi.fetchMoreData(
+      token: wellActive.isApiToken,
+      referenceTime: refTime,
+      forward: true,
+      count: 15,
+    );
+
+    if (newData.isEmpty) {
+      // No new data from API.
+      return false;
+    }
+
+    fullData.addAll(newData);
+    currentIndex.value+=12;
+    updateDisplayedData();
+    return true;
+  }
+
+
+  Future<bool> moveBackward({required WellActive wellActive}) async {
+    const int blockSize = 15;
+
+    if (currentIndex.value >= blockSize) {
+      currentIndex.value -= blockSize;
+      updateDisplayedData();
+      return true;
+    } else {
+
+      DateTime referenceTime = displayedData.isNotEmpty
+          ? displayedData.first.dateTime
+          : DateTime.now();
+
+      final List<DrillingData> olderData = await PduApi.fetchMoreData(
+        token: wellActive.isApiToken,
+        referenceTime: referenceTime.subtract(const Duration(minutes: 15)),
+        forward: false,
+        count: blockSize,
+      );
+
+      if (olderData.isEmpty) {
+        return false;
+      }
+
+      fullData.insertAll(0, olderData);
+
+      int newIndex = (currentIndex.value + olderData.length) - blockSize;
+      if (newIndex < 0) newIndex = 0;
+
+      currentIndex.value = newIndex;
+      updateDisplayedData();
+      return true;
     }
   }
 
@@ -95,39 +121,4 @@ class DrillingController extends GetxController {
   void storeSeriesController(String key, ChartSeriesController ctl) {
     seriesControllers[key] = ctl;
   }
-
-  List<DrillingData> _generateDummyData() {
-    final List<DrillingData> dummy = [];
-    final now = DateTime.now();
-    for (int i = 0; i < 100; i++) {
-      dummy.add(DrillingData(
-        dateTime: now.add(Duration(minutes: i)),
-        bitDepth: (i * 5).toDouble(),
-        scfm: 50 + i.toDouble(),
-        mudCondIn: 1000 + (i * 5).toDouble(),
-        blockPos: (i * 1.2),
-        wob: 10 + i.toDouble(),
-        ropi: 20 + (i * 0.5),
-        bvDepth: (i * 2.2),
-        mudCondOut: 900 + (i * 5).toDouble(),
-        torque: 5 + (i * 0.25),
-        rpm: 100 + (i % 5),
-        hkld: 15 + i.toDouble(),
-        logDepth: (i * 5).toDouble(),
-        h2s_1: i.toDouble(),
-        mudFlowOutp: 150.0 + i,
-        totSPM: 30.0 + i,
-        spPress: 800 + i.toDouble() * 2,
-        mudFlowIn: 200.0 + i,
-        co2_1: 0.5 + (i * 0.01),
-        gas: 1.0 + (i * 0.02),
-        mudTempIn: 30 + i * 0.1,
-        mudTempOut: 40 + i * 0.1,
-        tankVolTot: 500 + (i * 10),
-      ));
-    }
-    return dummy;
-  }
-
-
 }

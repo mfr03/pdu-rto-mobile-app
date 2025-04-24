@@ -3,11 +3,14 @@ class WellActive {
   final String cid;
   final String wellName;
   final String isApiToken;
-  final String wellType; // 1 = Geothermal, 2 = Oil & Gas
+  final String wellType;
   final String companyName;
   final String timeZone;
   final String startDate;
   final String endDate;
+
+  String timeStart;
+  String timeEnd;
 
   WellActive({
     required this.wid,
@@ -19,6 +22,8 @@ class WellActive {
     required this.timeZone,
     required this.startDate,
     required this.endDate,
+    this.timeStart = "00:00:00",
+    this.timeEnd = "00:15:00",
   });
 
   factory WellActive.fromJson(Map<String, dynamic> json) {
@@ -33,5 +38,10 @@ class WellActive {
       startDate: json["start_date"] ?? "",
       endDate: json["end_date"] ?? "",
     );
+  }
+
+  void updateTimeRange(String newTimeStart, String newTimeEnd) {
+    timeStart = newTimeStart;
+    timeEnd = newTimeEnd;
   }
 }

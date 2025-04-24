@@ -46,6 +46,19 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant ParameterDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // whenever the incoming parameter list changes, scroll back to top
+    if (!listEquals(oldWidget.parameters, widget.parameters)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
+      });
+    }
+  }
+
   void _showEditDialog(ParameterItem parameter) {
     showDialog(
       context: context,
@@ -132,13 +145,15 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                 ),
               ],
             ),
+
+
             Transform.translate(
-              offset: const Offset(0, -10),
+              offset: const Offset(0, -12),
               child: Container(
                 decoration: CAppTheme.elevatedContainer,
                 padding: const EdgeInsets.only(bottom: 8),
                 child: SizedBox(
-                  height: 200, // Keep fixed height but make content scrollable
+                  height: 200,
                   child: Scrollbar(
                     controller: _scrollController,
                     thumbVisibility: true,
@@ -154,31 +169,31 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                             Padding(
                               padding: CAppTheme.parameterDashboardPadding,
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Circle(param.color, CSizes.parameterDashboardCircleSize),
-                                      const SizedBox(width: 16),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          ColoredText(
-                                            text: param.name,
-                                            textColor: param.color,
-                                            textSize: CSizes.parameterDashboardNumberTextSize + 1,
-                                            isBold: true,
-                                          ),
-                                          ColoredText(
-                                            text: param.value,
-                                            textColor: param.color,
-                                            textSize: CSizes.parameterDashboardNumberTextSize + 1,
-                                            isBold: true,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                  Circle(param.color, CSizes.parameterDashboardCircleSize),
+                                  const SizedBox(width: 16),
+
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ColoredText(
+                                          text: param.name,
+                                          textColor: param.color,
+                                          textSize: CSizes.parameterDashboardNumberTextSize + 1,
+                                          isBold: true,
+                                        ),
+                                        ColoredText(
+                                          text: param.value,
+                                          textColor: param.color,
+                                          textSize: CSizes.parameterDashboardNumberTextSize + 1,
+                                          isBold: true,
+                                        ),
+                                      ],
+                                    ),
                                   ),
+
+                                  // 3) Settings button stays at the end
                                   IconButton(
                                     icon: const Icon(Icons.settings, color: CColors.primaryColor),
                                     onPressed: () => _showEditDialog(param),

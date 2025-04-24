@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
+import 'package:pdu_mobile_rto_app/features/charts/screen/chart_drilling_screen.dart';
 
 class WellsActiveScreen extends StatefulWidget {
   const WellsActiveScreen({Key? key}) : super(key: key);
@@ -23,9 +23,6 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Active Wells"),
-      ),
       body: FutureBuilder<List<WellActive>>(
         future: _futureWells,
         builder: (context, snapshot) {
@@ -36,6 +33,7 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
 
           // Show a loading spinner until data arrives
           if (snapshot.connectionState == ConnectionState.waiting) {
+            debugPrint("here");
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -50,21 +48,14 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
                   title: Text(well.wellName),
                   subtitle: Text("Company: ${well.companyName}"),
                   onTap: () async {
-
-                    final now = DateTime.now();
-                    final fifteenMinutesAgo = now.subtract(const Duration(minutes: 15));
-
-                    // Format them into the desired string format
-                    final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
-                    final timeEnd = formatter.format(now);
-                    final timeStart = formatter.format(fifteenMinutesAgo);
-
-
-                    await PduApi.fetchRealtimeData(
-                        token: well.isApiToken,
-                        timeStart: timeStart,
-                        timeEnd: timeEnd
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DrillingChartScreen(
+                        wellActive: well,
+                      )
+                      )
                     );
+
                   },
                 );
               },

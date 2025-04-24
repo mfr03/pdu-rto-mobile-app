@@ -23,7 +23,10 @@ class HiveService {
             // Mechanical track parameters
             ParameterItem(
               name: 'BitDepth (m)',
+              jsonKey: 'bitdepth',
               color: Colors.green,
+              scaleStart: 0,
+              scaleEnd: 5000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mechanical',
@@ -31,7 +34,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'WOB (klb)',
+              jsonKey: 'woba',
               color: Colors.purple,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mechanical',
@@ -39,7 +45,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'Torque (klb.ft)',
+              jsonKey: 'torqa',
               color: Colors.blue,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mechanical',
@@ -47,7 +56,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'RPM',
+              jsonKey: 'rpm',
               color: Colors.red,
+                scaleStart: 0,
+                scaleEnd: 5000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mechanical',
@@ -55,7 +67,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'Hkld (klb)',
+              jsonKey: 'hklda',
               color: Colors.teal,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mechanical',
@@ -65,7 +80,10 @@ class HiveService {
             // Mud track parameters
             ParameterItem(
               name: 'MudFlowIn (gpm)',
+              jsonKey: 'mudflowin',
               color: Colors.red,
+                scaleStart: 0,
+                scaleEnd: 1000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mud',
@@ -73,7 +91,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'MudFlowOutp (gpm)',
+              jsonKey: 'mudflowoutp',
               color: Colors.blue,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mud',
@@ -81,7 +102,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'MudCondIn (mmho)',
+              jsonKey: 'mudcondin',
               color: Colors.green,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mud',
@@ -89,7 +113,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'MudCondOut (mmho)',
+              jsonKey: 'mudcondout',
               color: Colors.purple,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mud',
@@ -97,7 +124,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'SpPress (Psi)',
+              jsonKey: 'totspm',
               color: Colors.orange,
+                scaleStart: 0,
+                scaleEnd: 1000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mud',
@@ -105,7 +135,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'TankVolTot (bbl)',
+              jsonKey: 'tankvoltot',
               color: Colors.brown,
+                scaleStart: 0,
+                scaleEnd: 2000,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'mud',
@@ -115,6 +148,9 @@ class HiveService {
             // Gas track parameters
             ParameterItem(
               name: 'H2S_1 (ppm)',
+                jsonKey: 'h2s1',
+                scaleStart: 0,
+                scaleEnd: 2000,
               color: Colors.deepOrange,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
@@ -123,7 +159,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'CO2_1 (%)',
+              jsonKey: 'co21',
               color: Colors.green,
+                scaleStart: 0,
+                scaleEnd: 100,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'gas',
@@ -131,7 +170,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'Gas (%)',
+              jsonKey: 'gas',
               color: Colors.red,
+                scaleStart: 0,
+                scaleEnd: 100,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'gas',
@@ -141,7 +183,10 @@ class HiveService {
             // Temperature track parameters
             ParameterItem(
               name: 'MudTempIn (C)',
+              jsonKey: 'mudtempin',
               color: Colors.blue,
+                scaleStart: 0,
+                scaleEnd: 400,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'temperature',
@@ -149,7 +194,10 @@ class HiveService {
             ),
             ParameterItem(
               name: 'MudTempOut (C)',
+              jsonKey: 'mudtempout',
               color: Colors.red,
+                scaleStart: 0,
+                scaleEnd: 400,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               trackType: 'temperature',

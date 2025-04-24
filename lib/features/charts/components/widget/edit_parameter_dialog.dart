@@ -24,6 +24,8 @@ class EditParameterDialog extends StatefulWidget {
 class _EditParameterDialogState extends State<EditParameterDialog> {
   late TextEditingController _nameController;
   late TextEditingController _unitController;
+  late TextEditingController _scaleStartController;
+  late TextEditingController _scaleEndController;
   late Color _selectedColor;
 
   @override
@@ -36,6 +38,8 @@ class _EditParameterDialogState extends State<EditParameterDialog> {
 
     _nameController = TextEditingController(text: currentParam.name);
     _unitController = TextEditingController(text: currentParam.unit);
+    _scaleStartController = TextEditingController(text: currentParam.scaleStart.toString());
+    _scaleEndController = TextEditingController(text: currentParam.scaleEnd.toString());
     _selectedColor = currentParam.color;
   }
 
@@ -66,6 +70,8 @@ class _EditParameterDialogState extends State<EditParameterDialog> {
     final updatedParameter = widget.parameter.copyWith(
       name: _nameController.text,
       unit: _unitController.text,
+      scaleStart: int.parse(_scaleStartController.text),
+      scaleEnd: int.parse(_scaleEndController.text),
       color: _selectedColor,
       updatedAt: DateTime.now(),
     );
@@ -89,7 +95,7 @@ class _EditParameterDialogState extends State<EditParameterDialog> {
           'Edit Parameter',
         style: TextStyle(color: CColors.primaryColor),
       ),
-      content: Column(
+      content: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
         TextFormField(
@@ -109,6 +115,33 @@ class _EditParameterDialogState extends State<EditParameterDialog> {
         ),
       ),
       const SizedBox(height: 16),
+      Row(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Expanded(child:
+            TextFormField(
+              keyboardType: TextInputType.number,
+              controller: _scaleStartController,
+              decoration: const InputDecoration(
+                labelText: 'Scale Start (num)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+            Expanded(child:
+            TextFormField(
+              keyboardType: TextInputType.number,
+              controller: _scaleEndController,
+              decoration: const InputDecoration(
+                labelText: 'Scale End (num)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          )
+        ],
+      ),
+          const SizedBox(height: 16),
       ListTile(
         leading: const Icon(Icons.color_lens),
         title: const Text('Parameter Color'),
@@ -126,6 +159,7 @@ class _EditParameterDialogState extends State<EditParameterDialog> {
         ),
       ),
         ],
+      ),
       ),
       actions: [
         TextButton(
