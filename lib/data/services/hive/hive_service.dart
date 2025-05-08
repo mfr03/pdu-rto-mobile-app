@@ -1,20 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_registrar.g.dart';
 import 'package:path_provider/path_provider.dart';
 
 class HiveService {
-      static Future<void> initializeHive() async {
+
+  static const _userWells = 'user_wells';
+  static const _userParameters= 'user_parameters';
+
+  static Future<void> initializeHive() async {
         final appDocumentDir = await getApplicationDocumentsDirectory();
         Hive
           ..init(appDocumentDir.path)
           ..registerAdapters();
-
     }
 
       static Future<Box<ParameterItem>> openParameterBox() async {
-        return await Hive.openBox<ParameterItem>('user_parameters');
+        return await Hive.openBox<ParameterItem>(_userParameters);
+      }
+
+      static Future<Box<WellActive>> openSavedWells() {
+        return Hive.openBox<WellActive>(_userWells);
+      }
+
+      static Future<void> saveSelectedWell(WellActive well) async {
+        debugPrint("opening box");
+        final box = await openSavedWells();
+        debugPrint("done box");
+        await box.put(well.isApiToken, well);
+      }
+
+      static Future<WellActive?> loadSavedWell(String token) async {
+        final box = await openSavedWells();
+        return box.get(token);
       }
 
       static Future<void> initializeDefaultData(Box<ParameterItem> box) async {

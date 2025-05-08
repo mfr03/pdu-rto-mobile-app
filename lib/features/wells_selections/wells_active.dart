@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/screen/chart_drilling_screen.dart';
 
 class WellsActiveScreen extends StatefulWidget {
-  const WellsActiveScreen({Key? key}) : super(key: key);
+  const WellsActiveScreen({super.key});
 
   @override
   State<WellsActiveScreen> createState() => _WellsActiveScreenState();
@@ -36,23 +38,32 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
             debugPrint("here");
             return const Center(child: CircularProgressIndicator());
           }
-
-          // If the snapshot has data, build the list
+          
           if (snapshot.hasData) {
             final wells = snapshot.data!;
             return ListView.builder(
               itemCount: wells.length,
               itemBuilder: (context, index) {
                 final well = wells[index];
+                final NavigatorState navigator = Navigator.of(context);
+
                 return ListTile(
                   title: Text(well.wellName),
                   subtitle: Text("Company: ${well.companyName}"),
-                  onTap: () async {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => DrillingChartScreen(
-                        wellActive: well,
-                      )
+                  onTap: ()  async {
+
+                    final box = await HiveService.openSavedWells();
+                    final saved = box.get(well.isApiToken);
+
+                    final toUse = saved ?? well;
+
+                    if(saved == null) {
+                      await box.put(well.isApiToken, toUse);
+                    }
+
+                    navigator.push(
+                      MaterialPageRoute(
+                        builder: (_) => DrillingChartScreen(wellActive: toUse),
                       )
                     );
 

@@ -3,7 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 
-import '../../../../utils/constants/colors.dart';
+import '../../../../../utils/constants/colors.dart';
 
 
 class EditParameterDialog extends StatefulWidget {

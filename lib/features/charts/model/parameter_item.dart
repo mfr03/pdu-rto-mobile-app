@@ -4,7 +4,7 @@ import 'package:hive_ce/hive.dart';
 
 // lib/models/parameter_item.dart
 
-@HiveType(typeId: 1)
+
 class ParameterItem extends HiveObject {
   @HiveField(0)
   final String name;      // what you show in the UI
@@ -28,6 +28,11 @@ class ParameterItem extends HiveObject {
   final String trackType;
   @HiveField(9)
   final String value;
+  @HiveField(10)
+  bool isVisible;
+  @HiveField(11)
+  final String? apiName;
+
 
   Color get color => Color(colorValue);
 
@@ -42,6 +47,8 @@ class ParameterItem extends HiveObject {
     required this.updatedAt,
     required this.trackType,
     required this.value,
+    this.isVisible = true,
+    this.apiName,
   }) : colorValue = color.value;
 
   ParameterItem copyWith({
@@ -53,6 +60,8 @@ class ParameterItem extends HiveObject {
     int? scaleEnd,
     DateTime? updatedAt,
     String? value,
+    bool? isVisible,
+    String? apiName,
   }) {
     return ParameterItem(
       name: name ?? this.name,
@@ -65,6 +74,8 @@ class ParameterItem extends HiveObject {
       updatedAt: updatedAt ?? this.updatedAt,
       trackType: trackType,
       value: value ?? this.value,
+      isVisible: isVisible ?? this.isVisible,
+      apiName:  apiName  ?? this.apiName,
     );
   }
 

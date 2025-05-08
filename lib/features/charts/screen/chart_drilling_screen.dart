@@ -1,25 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
-import 'package:pdu_mobile_rto_app/features/charts/components/widget/parameter_dashboard.dart';
+import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_depth_service.dart';
+import 'package:pdu_mobile_rto_app/data/services/shared_preferences/model/depth_config.dart';
+import 'package:pdu_mobile_rto_app/data/services/shared_preferences/model/depth_config_result.dart';
+import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/depth_config_dialog.dart';
+import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_depth_page.dart';
+import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_time_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
-import '../../../data/services/pdu_api/model/drilling_data.dart';
 import '../../../data/services/pdu_api/model/well_active.dart';
 import '../../../utils/constants/colors.dart';
-import '../components/widget/add_parameter_dialog.dart';
-import '../components/widget/home_screen_widget.dart';
-import '../components/widget/single_chart_page.dart';
-import '../components/widget/single_depth_chart_page.dart';
+import '../components/widget/dialog/add_parameter_dialog.dart';
+import '../../home/home_screen_widget.dart';
 import '../model/parameter_item.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:get_it/get_it.dart';
-
-extension DrillingDataExtension on DrillingData {
-  num value(String key) {
-    final val = rawData[key];
-    return val == null ? 0.0 : double.tryParse(val.toString()) ?? 0.0;
-  }
-}
 
 class DrillingChartScreen extends StatefulWidget {
   final WellActive wellActive;
@@ -32,11 +27,9 @@ class DrillingChartScreen extends StatefulWidget {
 
 class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // Core data & Hive box
-  final DrillingController controller =
-  GetIt.instance<DrillingController>();
+  final DrillingController controller = GetIt.instance<DrillingController>();
   Box<ParameterItem>? parameterBox;
   StreamSubscription<BoxEvent>? _paramSub;
-
   // Loading & UI state
   bool _isDataLoaded = false;
   bool _isSearching = false;
@@ -44,6 +37,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
   // Bottom nav
   int _selectedIndex = 0;
+  int _lastInitializedTab = -1;
   String? _multiMode; // 'time', 'depth', or null
 
   // Single-chart controllers & notifiers
@@ -58,21 +52,30 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   late final ValueNotifier<int> _multiNotifier1 = ValueNotifier(0);
   late final ValueNotifier<int> _multiNotifier2 = ValueNotifier(0);
 
+
+
   // For pop‑up menu positioning
   Offset? _tapPosition;
+
+  late DepthConfig _depthConfig;
+  bool _depthConfigLoaded = false;
+  bool _depthDialogFirstTime = true;
 
   @override
   void initState() {
     super.initState();
     // Load Hive & data
+    _loadDepthConfig();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+
       parameterBox = await HiveService.openParameterBox();
       _paramSub = parameterBox!.watch().listen((_) => setState(() {}));
       setState(() => _isDataLoaded = true);
       setState(() => _isSearching = true);
-      await controller.initializeData(wellActive: widget.wellActive);
       setState(() => _isSearching = false);
       _setupPageListeners();
+
+      await controller.initializeData(wellActive: widget.wellActive);
     });
 
     // Multi‑chart page listeners
@@ -95,7 +98,80 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _multiNotifier1.dispose();
     _multiNotifier2.dispose();
     _paramSub?.cancel();
+    controller.deleteData();
     super.dispose();
+  }
+
+  Future<void> _initializeDataForCurrentTab() async {
+    if(_selectedIndex == _lastInitializedTab) return;
+
+    setState(() => _isSearching = true);
+
+    if (_selectedIndex == 2 || _multiMode == 'depth') {
+      await controller.initializeDepthData(wellActive: widget.wellActive);
+    } else if (_selectedIndex == 1 || _multiMode == 'time') {
+      await controller.initializeData(wellActive: widget.wellActive);
+    }
+
+    setState(() {
+      _isSearching = false;
+      _lastInitializedTab = _selectedIndex;
+    });
+}
+
+  void _handleTabChange(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _multiMode = null;
+    });
+    _initializeDataForCurrentTab(); // Initialize when tab changes
+  }
+
+  Future<void> _loadDepthConfig() async {
+    final token = widget.wellActive.isApiToken;
+    final cfg = await ChartDepthService.loadConfig(token);
+
+    setState(() {
+      _depthConfig = cfg;
+      _depthConfigLoaded = true;
+    });
+  }
+
+  // Todo()
+  Future<void> _onDepthTabSelected() async {
+
+    if (!_depthConfigLoaded || _depthConfig.disabled) return;
+
+    bool shouldLoadData = true;
+
+    if (!_depthConfig.disabled && _depthDialogFirstTime) {
+      final result = await showDialog<DepthConfigResult>(
+        context: context,
+        builder: (_) => DepthConfigDialog(
+          initialStart: _depthConfig.start,
+          initialEnd:   _depthConfig.end,
+        ),
+      );
+
+      if (result != null) {
+        shouldLoadData = false;
+      } else {
+        await ChartDepthService.saveRange(
+        widget.wellActive.isApiToken,
+            result!.start,
+            result!.end
+        );
+        if(result.doNotShowAgain) {
+          await ChartDepthService.disableDialog(widget.wellActive.isApiToken);
+        }
+      }
+      _depthDialogFirstTime = false;
+    }
+
+    if(shouldLoadData) {
+      await controller.initializeDepthData(wellActive: widget.wellActive);
+    }
+
   }
 
   void _setupPageListeners() {
@@ -107,358 +183,37 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     });
   }
 
-  /// Capitalize helper
-  String _capitalize(String s) =>
-      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
-
-  /// Single chart pages
-  List<Widget> get _timeChartPages => ['mechanical', 'mud', 'gas', 'temperature']
-      .map((t) => SingleChartPage(
-    key: ValueKey('time-$t'),
-    title: '${_capitalize(t)} Track',
-    mapString: t,
-    variableMap: _variableMap(t),
-    controller: controller,
-    colorMap: {
-      for (var p in parameterBox!.values.where((p) => p.trackType == t))
-        p.name: p.color
-    },
-  ))
-      .toList();
-
-  List<Widget> get _depthChartPages =>
-      ['mechanical', 'mud', 'gas', 'temperature']
-          .map((t) => SingleDepthChartPage(
-        key: ValueKey('depth-$t'),
-        title: '${_capitalize(t)} Depth Track',
-        trackType: t,
-        variableMap: _variableMap(t),
-        controller: controller,
-        colorMap: {
-          for (var p
-          in parameterBox!.values.where((p) => p.trackType == t))
-            p.name: p.color
-        },
-      ))
-          .toList();
-
-  Map<String, num Function(DrillingData)> _variableMap(String trackType) {
-    return {
-      for (var p in parameterBox!.values
-          .where((p) => p.trackType == trackType))
-        p.name: (d) => d.value(p.jsonKey),
-    };
-  }
-
-  List<ParameterItem> _buildDashboardParams(int pageIndex) {
-    final data = controller.displayedData;
-    if (data.isEmpty) return [];
-    final last = data.last;
-    const tracks = ['mechanical', 'mud', 'gas', 'temperature'];
-    final track = tracks[pageIndex];
-    return parameterBox!.values
-        .where((p) => p.trackType == track)
-        .map((p) {
-      final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
-      final v = double.tryParse(raw) ?? 0.0;
-      return p.copyWith(
-        value: v.toStringAsFixed(1),
-        updatedAt: DateTime.now(),
-      );
-    }).toList();
-  }
-
-  List<ParameterItem> _dashboardItems(String track, int pageIdx) {
-    final data = controller.displayedData;
-    if (data.isEmpty) return [];
-    final last = data.last;
-    return parameterBox!.values
-        .where((p) => p.trackType == track)
-        .map((p) {
-      final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
-      final v = double.tryParse(raw) ?? 0.0;
-      return p.copyWith(
-        value: v.toStringAsFixed(1),
-        updatedAt: DateTime.now(),
-      );
-    }).toList();
-  }
-
-  Widget _buildControlButtons(PageController ctrl) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              color: CColors.primaryColor,
-              onPressed: () {},
-            ),
-            const SizedBox(height: 8),
-            IconButton(
-              icon: const Icon(Icons.fast_rewind),
-              color: CColors.primaryColor,
-              onPressed: _isSearching
-                  ? null
-                  : () async {
-                setState(() => _isSearching = true);
-                await controller.moveBackward(
-                    wellActive: widget.wellActive);
-                setState(() => _isSearching = false);
-              },
-            ),
-            const SizedBox(height: 8),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              color: CColors.primaryColor,
-              onPressed: _isSearching
-                  ? null
-                  : () {
-                controller.reset();
-                setState(() {});
-              },
-            ),
-            const SizedBox(height: 8),
-            IconButton(
-              icon: const Icon(Icons.fast_forward),
-              color: CColors.primaryColor,
-              onPressed: _isSearching
-                  ? null
-                  : () async {
-                setState(() => _isSearching = true);
-                await controller.fastForward(
-                    wellActive: widget.wellActive);
-                setState(() => _isSearching = false);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMultiChartSection({
-    required List<String> tracks,
-    required PageController pageController,
-    required ValueNotifier<int> pageNotifier,
-    required String mode, // 'time' or 'depth'
-    bool hideToolbar = false,
-    bool hideXAxis = false,
-  }) {
-    // Build each page as before
-    final pages = tracks.map((t) {
-      final varMap = <String, num Function(DrillingData)>{
-      for (var p in parameterBox!.values.where((p) => p.trackType == t))
-      p.name: (d) => d.value(p.jsonKey),
-      };
-      final colorMap = {
-      for (var p in parameterBox!.values.where((p) => p.trackType == t))
-      p.name: p.color,
-      };
-      if (mode == 'time') {
-      return SingleChartPage(
-      key: ValueKey('multi-$mode-$t'),
-      title: _capitalize(t),
-      mapString: t,
-      variableMap: varMap,
-      controller: controller,
-      colorMap: colorMap,
-      showXAxisLabel: !hideXAxis,
-      );
-      } else {
-      return SingleDepthChartPage(
-      key: ValueKey('multi-$mode-$t'),
-      title: _capitalize(t),
-      trackType: t,
-      variableMap: varMap,
-      controller: controller,
-      colorMap: colorMap,
-      );
+  void _onFieldChanged(String name, dynamic value) {
+    setState(() {
+      switch (name) {
+        case '_isDataLoaded':
+          _isDataLoaded = value as bool;
+          break;
+        case '_isSearching':
+          _isSearching = value as bool;
+          break;
+        case '_isDashboardVisible':
+          _isDashboardVisible = value as bool;
+          break;
+        default:
+          break;
       }
-    }).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-
-        Expanded(
-          flex: _isDashboardVisible ? 6 : 9,
-          child: Stack(
-            children: [
-              PageView(controller: pageController, children: pages),
-              if (!hideToolbar) _buildControlButtons(pageController),
-            ],
-          ),
-        ),
-
-        if (_isDashboardVisible)
-          Expanded(
-            flex: 4,
-            child: ValueListenableBuilder<int>(
-              valueListenable: pageNotifier,
-              builder: (_, idx, __) {
-                final track = tracks[idx % tracks.length];
-                return ParameterDashboard(
-                  parameterAmount: pages.length,
-                  activeIndex: idx + 1,
-                  parameters: _dashboardItems(track, idx),
-                  parameterBox: parameterBox!,
-                  onCardTap: (i) {
-                    final newPage = i - 1;
-                    pageController.jumpToPage(newPage);
-                    pageNotifier.value = newPage;
-                  },
-                );
-              },
-            ),
-          ),
-      ],
-    );
+    });
   }
 
-  Widget _buildTimeTab() {
-    if (_multiMode == 'time') {
-      return Row(
-        children: [
-          Expanded(
-            child: _buildMultiChartSection(
-              tracks: ['mechanical', 'mud'],
-              pageController: _multiCtrl1,
-              pageNotifier: _multiNotifier1,
-              mode: 'time',
-              hideToolbar: true,
-              hideXAxis: false,
-            ),
-          ),
-          Expanded(
-            child: _buildMultiChartSection(
-              tracks: ['gas', 'temperature'],
-              pageController: _multiCtrl2,
-              pageNotifier: _multiNotifier2,
-              mode: 'time',
-              hideToolbar: false,
-              hideXAxis: true,
-            ),
-          ),
-        ],
-      );
-    } else {
-      return SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              flex: _isDashboardVisible ? 6 : 9,
-              child: Stack(
-                children: [
-                  PageView(
-                    controller: _timeCtrl,
-                    children: _timeChartPages,
-                  ),
-                  _buildControlButtons(_timeCtrl),
-                ],
-              ),
-            ),
-            if (_isDashboardVisible)
-              Expanded(
-                flex: 4,
-                child: ValueListenableBuilder<int>(
-                  valueListenable: _timeNotifier,
-                  builder: (_, idx, __) => ParameterDashboard(
-                    parameterAmount: _timeChartPages.length,
-                    activeIndex: _timeNotifier.value + 1,
-                    parameters: _buildDashboardParams(_timeNotifier.value),
-                    parameterBox: parameterBox!,
-                    onCardTap: (i) {
-                      final newPage = i - 1;
-                      _timeCtrl.jumpToPage(newPage);
-                      _timeNotifier.value = newPage;
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
+  List<String> get _trackTypes {
+    if (parameterBox == null) return [];
+    return parameterBox!.values.map((p) => p.trackType).toSet().toList();
   }
 
-  Widget _buildDepthTab() {
-    if (_multiMode == 'depth') {
-      return Row(
-        children: [
-          Expanded(
-            child: _buildMultiChartSection(
-              tracks: ['mechanical', 'mud'],
-              pageController: _multiCtrl1,
-              pageNotifier: _multiNotifier1,
-              mode: 'depth',
-              hideToolbar: true,
-              hideXAxis: false,
-            ),
-          ),
-          Expanded(
-            child: _buildMultiChartSection(
-              tracks: ['gas', 'temperature'],
-              pageController: _multiCtrl2,
-              pageNotifier: _multiNotifier2,
-              mode: 'depth',
-              hideToolbar: false,
-              hideXAxis: true,
-            ),
-          ),
-        ],
-      );
-    } else {
-      return SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              flex: _isDashboardVisible ? 6 : 9,
-              child: Stack(
-                children: [
-                  PageView(
-                    controller: _depthCtrl,
-                    children: _depthChartPages,
-                  ),
-                  _buildControlButtons(_depthCtrl),
-                ],
-              ),
-            ),
-            if (_isDashboardVisible)
-              Expanded(
-                flex: 4,
-                child: ValueListenableBuilder<int>(
-                  valueListenable: _depthNotifier,
-                  builder: (_, idx, __) => ParameterDashboard(
-                    parameterAmount: _depthChartPages.length,
-                    activeIndex: _depthNotifier.value + 1,
-                    parameters: _buildDashboardParams(_depthNotifier.value),
-                    parameterBox: parameterBox!,
-                    onCardTap: (i) {
-                      final newPage = i - 1;
-                      _depthCtrl.jumpToPage(newPage);
-                      _depthNotifier.value = newPage;
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-  }
-
-  /// Show inline pop‑up on long‑press
   void _showChartTypeMenu(int index) async {
     // record navIndex → mode
     final mode = (index == 1) ? 'time' : 'depth';
     // convert tap to overlay coords
     final overlay =
-    Overlay.of(context)!.context.findRenderObject() as RenderBox;
-    final local = overlay.globalToLocal(_tapPosition!);
+        Overlay.of(context)!.context.findRenderObject() as RenderBox;
+    final local =
+        overlay.globalToLocal(_tapPosition!); // now guaranteed non-null
     final bottomInset = MediaQuery.of(context).padding.bottom;
     const barH = kBottomNavigationBarHeight;
     // anchor menu just above nav bar:
@@ -473,8 +228,18 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       context: context,
       position: position,
       items: const [
-        PopupMenuItem(value: 'single', child: Text('Single Chart')),
-        PopupMenuItem(value: 'multi', child: Text('Multi‑Chart')),
+        PopupMenuItem(
+            value: 'single',
+            child: Text(
+              'Single Track',
+              style: TextStyle(color: CColors.primaryColor),
+            )),
+        PopupMenuItem(
+            value: 'multi',
+            child: Text(
+              'Multi Tracks',
+              style: TextStyle(color: CColors.primaryColor),
+            )),
       ],
     );
     if (choice != null) {
@@ -490,22 +255,21 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     }
   }
 
-  /// Bottom‑nav item builder with inline menu
   BottomNavigationBarItem _buildNavItem(IconData icon, int index) {
     return BottomNavigationBarItem(
       icon: GestureDetector(
-        onTapDown: (details) {
-          _tapPosition = details.globalPosition;
-        },
+        // remove onTapDown entirely
         onTap: () {
           setState(() {
             _selectedIndex = index;
             _multiMode = null;
           });
         },
-        onLongPress: (index == 1 || index == 2)
-            ? () => _showChartTypeMenu(index)
-            : null,
+        // use onLongPressStart to grab the position reliably
+        onLongPressStart: (details) {
+          _tapPosition = details.globalPosition;
+          _showChartTypeMenu(index);
+        },
         child: Column(
           mainAxisSize: MainAxisSize.max,
           children: [
@@ -525,71 +289,114 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   }
 
   BottomNavigationBar _buildBottomNav() => BottomNavigationBar(
-    currentIndex: _selectedIndex,
-    onTap: (i) => setState(() {
-      _selectedIndex = i;
-      _multiMode = null;
-    }),
-    type: BottomNavigationBarType.fixed,
-    backgroundColor: Colors.white,
-    showSelectedLabels: false,
-    showUnselectedLabels: false,
-    items: [
-      _buildNavItem(Icons.home, 0),
-      _buildNavItem(Icons.show_chart, 1),
-      _buildNavItem(Icons.show_chart_sharp, 2),
-      _buildNavItem(Icons.chat_sharp, 3),
-      _buildNavItem(Icons.notifications, 4),
-    ],
-  );
+        currentIndex: _selectedIndex,
+        onTap: _handleTabChange,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        items: [
+          _buildNavItem(Icons.home, 0),
+          _buildNavItem(Icons.show_chart, 1),
+          _buildNavItem(Icons.show_chart_sharp, 2),
+          _buildNavItem(Icons.chat_sharp, 3),
+          _buildNavItem(Icons.notifications, 4),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
+
+
+    if (parameterBox == null) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     // your five pages
     final pages = [
-      HomeScreenWidget(controller: controller, parameterBox: parameterBox!),
-      _buildTimeTab(),
-      _buildDepthTab(),
+      HomeScreenWidget(controller: controller, parameterBox: parameterBox),
+      ChartTimePage(
+          multiMode: _multiMode,
+          trackTypes: _trackTypes,
+          controller: controller,
+          multiCtrl1: _multiCtrl1,
+          multiCtrl2: _multiCtrl2,
+          timeCtrl: _timeCtrl,
+          multiNotifier1: _multiNotifier1,
+          multiNotifier2: _multiNotifier2,
+          timeNotifier: _timeNotifier,
+          parameterBox: parameterBox,
+          isDashboardVisible: _isDashboardVisible,
+          wellActive: widget.wellActive,
+          onFieldChanged: _onFieldChanged),
+      ChartDepthPage(
+          multiMode: _multiMode,
+          trackTypes: _trackTypes,
+          controller: controller,
+          multiCtrl1: _multiCtrl1,
+          multiCtrl2: _multiCtrl2,
+          depthCtrl: _depthCtrl,
+          multiNotifier1: _multiNotifier1,
+          multiNotifier2: _multiNotifier2,
+          depthNotifier: _depthNotifier,
+          parameterBox: parameterBox,
+          isDashboardVisible: _isDashboardVisible,
+          wellActive: widget.wellActive,
+          onFieldChanged: _onFieldChanged),
       const Center(child: Text('Placeholder 3')),
       const Center(child: Text('Placeholder 4')),
     ];
 
+
+    if(_selectedIndex == 2 && _depthConfigLoaded && !_depthConfig.disabled && _depthDialogFirstTime) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onDepthTabSelected();
+      });
+    }
+
     return Scaffold(
       bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(
-        backgroundColor: CColors.primaryColor,
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => AddParameterDialog(
-            wellActive: widget.wellActive,
-            parameterBox: parameterBox!,
-            controller: controller,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child:_selectedIndex == 0
+            ? FloatingActionButton(
+          backgroundColor: CColors.primaryColor,
+          onPressed: () => showDialog(
+            context: context,
+            builder: (_) => AddParameterDialog(
+              wellActive: widget.wellActive,
+              parameterBox: parameterBox!,
+              controller: controller,
+            ),
           ),
-        ),
-        child: const Icon(Icons.add),
-      )
-          : (_selectedIndex == 1 || _selectedIndex == 2)
-          ? FloatingActionButton(
-        backgroundColor: CColors.primaryColor,
-        onPressed: () =>
-            setState(() => _isDashboardVisible = !_isDashboardVisible),
-        child: Icon(_isDashboardVisible
-            ? Icons.visibility_off
-            : Icons.visibility),
-      )
-          : null,
+          child: const Icon(Icons.add),
+        )
+            : (_selectedIndex == 1 || _selectedIndex == 2)
+            ? FloatingActionButton(
+          backgroundColor: CColors.primaryColor,
+          onPressed: () => setState(
+                  () => _isDashboardVisible = !_isDashboardVisible),
+          child: Icon(_isDashboardVisible
+              ? Icons.visibility_off
+              : Icons.visibility),
+        )
+            : null,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: SafeArea(
         child: Stack(
           children: [
-            // ◀ your normal content
             Column(
               children: [
+
                 Expanded(child: pages[_selectedIndex]),
               ],
             ),
 
-            // ◀ loading overlay
+
+
             if (!_isDataLoaded || _isSearching)
               Positioned.fill(
                 child: Container(

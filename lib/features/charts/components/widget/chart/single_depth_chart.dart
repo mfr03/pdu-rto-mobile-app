@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:get/get.dart';
 
-import '../../../../data/services/pdu_api/model/drilling_data.dart';
-import '../../controller/chart_drilling_controller.dart';
-import '../../model/parameter_item.dart';
 
-
-class SingleDepthChartPage extends StatefulWidget {
+class SingleDepthChart extends StatefulWidget {
   final String title;
   final String trackType;                    //  <-- NEW
   final Map<String, num Function(DrillingData)> variableMap;
   final DrillingController controller;
   final Map<String, Color> colorMap;
 
-  const SingleDepthChartPage({
+  const SingleDepthChart({
     super.key,
     required this.title,
     required this.trackType,
@@ -25,10 +24,10 @@ class SingleDepthChartPage extends StatefulWidget {
   });
 
   @override
-  State<SingleDepthChartPage> createState() => _SingleDepthChartPageState();
+  State<SingleDepthChart> createState() => _SingleDepthChartState();
 }
 
-class _SingleDepthChartPageState extends State<SingleDepthChartPage>
+class _SingleDepthChartState extends State<SingleDepthChart>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -104,6 +103,9 @@ class _SingleDepthChartPageState extends State<SingleDepthChartPage>
     // 2. Trackball & chart definition
     //---------------------------------------------------------------
     return SfCartesianChart(
+      key: ValueKey(
+        'depthchart-${widget.trackType}-${widget.variableMap.keys.join(",")}',
+      ),
       isTransposed: true,
       title: ChartTitle(
         text: widget.title,
@@ -141,6 +143,8 @@ class _SingleDepthChartPageState extends State<SingleDepthChartPage>
           xValueMapper: (d, _) => d.bitDepth,
           yValueMapper: (d, _) => e.value(d),
           markerSettings: const MarkerSettings(isVisible: false),
+          animationDuration: 0,
+          animationDelay: 0,
           onRendererCreated: (ctl) =>
               widget.controller.storeSeriesController(widget.trackType, ctl),
         );

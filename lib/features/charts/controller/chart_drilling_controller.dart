@@ -1,7 +1,9 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
+import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_depth_service.dart';
+import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../data/services/pdu_api/model/well_active.dart';
@@ -20,7 +22,7 @@ class DrillingController extends GetxController {
 
   var currentIndex = 0.obs;
 
-  final PduApi _api = PduApi();
+  bool _depthFirstCall = true;
 
   Future<void> initializeData({
     required WellActive wellActive
@@ -32,6 +34,47 @@ class DrillingController extends GetxController {
     fullData.clear();
     fullData.addAll(initialData);
     updateDisplayedData();
+  }
+
+  Future<void> initializeDepthData({
+    required WellActive wellActive
+ }) async {
+    debugPrint("aaaa");
+    final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
+    
+    final ts = wellActive.timeStart;
+    final te = wellActive.timeEnd;
+    
+    final data = await PduApi.fetchDepthBasedData(
+        token: wellActive.isApiToken,
+        timeStart: ts,
+        timeEnd: te, 
+        depthStart: cfg.start, 
+        depthEnd: cfg.end, 
+        first: _depthFirstCall
+    );
+    
+    if(data.isNotEmpty) {
+      _depthFirstCall = false;
+      fullData.clear();
+      fullData.addAll(data);
+      for(var res in data) {
+
+      }
+      final fmtStart = CFormatter.formatDateTime(data.first.dateTime);
+      final fmtEnd = CFormatter.formatDateTime(data.last.dateTime);
+
+      wellActive.updateTimeRange(fmtStart, fmtEnd);
+    }
+
+    updateDisplayedData();
+    
+  }
+
+  void deleteData() {
+    fullData.clear();
+    displayedData.clear();
+    currentIndex = 0.obs;
   }
 
 
@@ -73,6 +116,25 @@ class DrillingController extends GetxController {
 
     fullData.addAll(newData);
     currentIndex.value+=12;
+    updateDisplayedData();
+    return true;
+  }
+
+  Future<bool> fastForwardDepth({ required WellActive wellActive }) async {
+    if (fullData.isEmpty) return false;
+    final lastTime = fullData.last.dateTime;
+    final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
+
+    final newData = await PduApi.fetchDepthBasedData(
+        token: wellActive.isApiToken,
+        timeStart: CFormatter.formatDateTime(lastTime),
+        timeEnd: CFormatter.formatDateTime(lastTime.add(Duration(minutes:15))),
+        depthStart: cfg.start,
+        depthEnd: cfg.end,
+        first: false
+    );
+    if (newData.isEmpty) return false;
+    fullData.addAll(newData);
     updateDisplayedData();
     return true;
   }

@@ -9,7 +9,7 @@ import 'package:pdu_mobile_rto_app/utils/theme/theme.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:flutter/foundation.dart';
 
-import 'edit_parameter_dialog.dart';
+import '../dialog/edit_parameter_dialog.dart';
 
 class ParameterDashboard extends StatefulWidget {
   final int parameterAmount;
@@ -76,22 +76,6 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
     );
   }
 
-  void _showPlaceholderDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Placeholder Dialog'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -129,7 +113,11 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
                   ),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _showPlaceholderDialog('Add Tracks'),
+                    onTap: () {
+                      if (widget.onCardTap != null) {
+                        widget.onCardTap!(widget.parameterAmount + 1);
+                      }
+                    },
                     child: Container(
                       height: CSizes.parameterDashboardNumberCardSize,
                       decoration: CAppTheme.standardBoxDecorationSecondaryColor,
@@ -146,68 +134,69 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
               ],
             ),
 
-
-            Transform.translate(
-              offset: const Offset(0, -12),
-              child: Container(
-                decoration: CAppTheme.elevatedContainer,
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SizedBox(
-                  height: 200,
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    child: ListView.builder(
+            Expanded(child:
+              Transform.translate(
+                offset: const Offset(0, -12),
+                child: Container(
+                  decoration: CAppTheme.elevatedContainer,
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SizedBox(
+                    height: 200,
+                    child: Scrollbar(
                       controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount:  widget.parameters.length,
-                      itemBuilder: (context, index) {
-                        final param = widget.parameters[index];
-                        return Column(
-                          key: ValueKey(param.name + param.color.toString()),
-                          children: [
-                            Padding(
-                              padding: CAppTheme.parameterDashboardPadding,
-                              child: Row(
-                                children: [
-                                  Circle(param.color, CSizes.parameterDashboardCircleSize),
-                                  const SizedBox(width: 16),
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount:  widget.parameters.length,
+                        itemBuilder: (context, index) {
+                          final param = widget.parameters[index];
+                          return Column(
+                            key: ValueKey(param.name + param.color.toString()),
+                            children: [
+                              Padding(
+                                padding: CAppTheme.parameterDashboardPadding,
+                                child: Row(
+                                  children: [
+                                    Circle(param.color, CSizes.parameterDashboardCircleSize),
+                                    const SizedBox(width: 16),
 
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        ColoredText(
-                                          text: param.name,
-                                          textColor: param.color,
-                                          textSize: CSizes.parameterDashboardNumberTextSize + 1,
-                                          isBold: true,
-                                        ),
-                                        ColoredText(
-                                          text: param.value,
-                                          textColor: param.color,
-                                          textSize: CSizes.parameterDashboardNumberTextSize + 1,
-                                          isBold: true,
-                                        ),
-                                      ],
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ColoredText(
+                                            text: param.name,
+                                            textColor: param.color,
+                                            textSize: CSizes.parameterDashboardNumberTextSize + 1,
+                                            isBold: true,
+                                          ),
+                                          ColoredText(
+                                            text: param.value,
+                                            textColor: param.color,
+                                            textSize: CSizes.parameterDashboardNumberTextSize + 1,
+                                            isBold: true,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
 
-                                  // 3) Settings button stays at the end
-                                  IconButton(
-                                    icon: const Icon(Icons.settings, color: CColors.primaryColor),
-                                    onPressed: () => _showEditDialog(param),
-                                  ),
-                                ],
-                              ),
-                            )
-                          ],
-                        );
-                      },
+                                    // 3) Settings button stays at the end
+                                    IconButton(
+                                      icon: const Icon(Icons.settings, color: CColors.primaryColor),
+                                      onPressed: () => _showEditDialog(param),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
-              ),
+              )
             ),
           ],
         ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
-import 'package:pdu_mobile_rto_app/features/charts/screen/chart_drilling_screen.dart';
 import 'package:pdu_mobile_rto_app/features/wells_selections/wells_active.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/theme/theme.dart';
