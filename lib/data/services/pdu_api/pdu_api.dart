@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_unit.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_variable.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
@@ -92,7 +93,6 @@ class PduApi {
   }) async {
     final uri = Uri.https(_baseUrl, _realtimeDataEndpoint);
 
-    // Non-standard GET with a JSON body
     final request = http.Request("GET", uri)
       ..headers["Content-Type"] = "application/json"
       ..body = jsonEncode({
@@ -153,7 +153,7 @@ class PduApi {
     return dataList;
   }
 
-  static Future<List<DrillingData>> fetchDepthBasedData({
+  static Future<List<DepthDrillingData>> fetchDepthBasedData({
     required String token,
     required String timeStart,
     required String timeEnd,
@@ -183,7 +183,7 @@ class PduApi {
     final List<dynamic> results = body["result"] ?? [];
     return results
         .cast<Map<String, dynamic>>()
-        .map((j) => DrillingData.fromJson(j))
+        .map((j) => DepthDrillingData.fromJson(j))
         .toList();
   }
 

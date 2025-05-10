@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
@@ -9,8 +10,8 @@ import 'package:get/get.dart';
 
 class SingleDepthChart extends StatefulWidget {
   final String title;
-  final String trackType;                    //  <-- NEW
-  final Map<String, num Function(DrillingData)> variableMap;
+  final String trackType;
+  final Map<String, num Function(DepthDrillingData)> variableMap;
   final DrillingController controller;
   final Map<String, Color> colorMap;
 
@@ -36,7 +37,7 @@ class _SingleDepthChartState extends State<SingleDepthChart>
   Widget build(BuildContext context) {
     super.build(context);
     return Obx(() {
-      final dataList = widget.controller.displayedData.toList();
+      final dataList = widget.controller.displayedDataDepth.toList();
       return Padding(
         padding: const EdgeInsets.all(8),
         child: _depthChart(dataList),
@@ -45,7 +46,7 @@ class _SingleDepthChartState extends State<SingleDepthChart>
   }
 
   /// identical idea to the time‑based chart, just with a NumericAxis on X
-  Widget _depthChart(List<DrillingData> data) {
+  Widget _depthChart(List<DepthDrillingData> data) {
     //---------------------------------------------------------------
     // 1. Build a separate numeric Y‑axis for every parameter
     //---------------------------------------------------------------
@@ -135,12 +136,12 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       // 3. One LineSeries per parameter → bound to its axis by name
       //-------------------------------------------------------------
       series: widget.variableMap.entries.map((e) {
-        return LineSeries<DrillingData, num>(
+        return LineSeries<DepthDrillingData, num>(
           name: e.key,
           color: widget.colorMap[e.key],
           yAxisName: e.key,                  //  <-- key point
           dataSource: data,
-          xValueMapper: (d, _) => d.bitDepth,
+          xValueMapper: (d, _) => d.md,
           yValueMapper: (d, _) => e.value(d),
           markerSettings: const MarkerSettings(isVisible: false),
           animationDuration: 0,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/chart/multi_chart.dart';
@@ -39,7 +40,7 @@ class ChartDepthPage extends StatelessWidget {
     required this.wellActive,
     required this.onFieldChanged});
 
-  Map<String, num Function(DrillingData)> _variableMap(String trackType) {
+  Map<String, num Function(DepthDrillingData)> _variableMap(String trackType) {
     return {
       for (var p in parameterBox!.values
           .where((p) => p.trackType == trackType && p.isVisible))
@@ -62,7 +63,7 @@ class ChartDepthPage extends StatelessWidget {
       .toList();
 
   List<ParameterItem> _buildDashboardParams(int pageIndex) {
-    final data = controller.displayedData;
+    final data = controller.displayedDataDepth;
     if (data.isEmpty) return [];
     final last = data.last;
     final track = trackTypes[pageIndex];
@@ -154,7 +155,9 @@ class ChartDepthPage extends StatelessWidget {
                       drillingController: controller,
                       wellActive: wellActive,
                       parameterBox: parameterBox!,
-                      onFieldChanged: onFieldChanged),
+                      onFieldChanged: onFieldChanged,
+                    mode: 'depth',
+                  ),
                 ],
               ),
             ),

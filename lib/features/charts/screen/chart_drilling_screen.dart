@@ -52,8 +52,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   late final ValueNotifier<int> _multiNotifier1 = ValueNotifier(0);
   late final ValueNotifier<int> _multiNotifier2 = ValueNotifier(0);
 
-
-
   // For pop‑up menu positioning
   Offset? _tapPosition;
 
@@ -109,8 +107,10 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
     if (_selectedIndex == 2 || _multiMode == 'depth') {
       await controller.initializeDepthData(wellActive: widget.wellActive);
+      debugPrint("depth");
     } else if (_selectedIndex == 1 || _multiMode == 'time') {
       await controller.initializeData(wellActive: widget.wellActive);
+      debugPrint("time");
     }
 
     setState(() {
@@ -120,16 +120,23 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 }
 
   void _handleTabChange(int index) {
+
+    if (_selectedIndex == index) return;
+
     setState(() {
       _selectedIndex = index;
       _multiMode = null;
     });
-    _initializeDataForCurrentTab(); // Initialize when tab changes
+    _initializeDataForCurrentTab();
   }
 
   Future<void> _loadDepthConfig() async {
     final token = widget.wellActive.isApiToken;
     final cfg = await ChartDepthService.loadConfig(token);
+
+    if(cfg.disabled) {
+      _depthDialogFirstTime = false;
+    }
 
     setState(() {
       _depthConfig = cfg;
@@ -153,9 +160,10 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         ),
       );
 
-      if (result != null) {
+      if (result == null) {
         shouldLoadData = false;
       } else {
+        debugPrint("saved");
         await ChartDepthService.saveRange(
         widget.wellActive.isApiToken,
             result!.start,
@@ -165,13 +173,11 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           await ChartDepthService.disableDialog(widget.wellActive.isApiToken);
         }
       }
-      _depthDialogFirstTime = false;
     }
-
-    if(shouldLoadData) {
+    _depthDialogFirstTime = false;
+    if(shouldLoadData ) {
       await controller.initializeDepthData(wellActive: widget.wellActive);
     }
-
   }
 
   void _setupPageListeners() {
@@ -207,9 +213,8 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   }
 
   void _showChartTypeMenu(int index) async {
-    // record navIndex → mode
+
     final mode = (index == 1) ? 'time' : 'depth';
-    // convert tap to overlay coords
     final overlay =
         Overlay.of(context)!.context.findRenderObject() as RenderBox;
     final local =

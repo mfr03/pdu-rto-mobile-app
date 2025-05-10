@@ -198,10 +198,6 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   }
 
   Widget _buildParamStep() {
-    // collect all JSON keys once
-    final allKeys = widget.controller.fullData.isEmpty
-        ? <String>[]
-        : widget.controller.fullData.first.rawData.keys.toList();
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());

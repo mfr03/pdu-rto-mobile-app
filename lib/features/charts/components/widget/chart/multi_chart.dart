@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/chart/single_chart.dart';
@@ -43,28 +44,51 @@ class MultiChart extends StatelessWidget {
 
 
   List<ParameterItem> _dashboardItems(String track, int pageIdx) {
-    final data = controller.displayedData;
-    if (data.isEmpty) return [];
-    final last = data.last;
-    return parameterBox!.values
-        .where((p) => p.trackType == track && p.isVisible)
-        .map((p) {
-      final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
-      final v = double.tryParse(raw) ?? 0.0;
-      return p.copyWith(
-        value: v.toStringAsFixed(1),
-        updatedAt: DateTime.now(),
-      );
-    }).toList();
+
+    if(mode == "time") {
+      List<DrillingData> data = controller.displayedData;
+      if (data.isEmpty) return [];
+      final last = data.last;
+      return parameterBox!.values
+          .where((p) => p.trackType == track && p.isVisible)
+          .map((p) {
+        final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
+        final v = double.tryParse(raw) ?? 0.0;
+        return p.copyWith(
+          value: v.toStringAsFixed(1),
+          updatedAt: DateTime.now(),
+        );
+      }).toList();
+    } else {
+      List<DepthDrillingData> data = controller.displayedDataDepth;
+      if (data.isEmpty) return [];
+      final last = data.last;
+      return parameterBox!.values
+          .where((p) => p.trackType == track && p.isVisible)
+          .map((p) {
+        final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
+        final v = double.tryParse(raw) ?? 0.0;
+        return p.copyWith(
+          value: v.toStringAsFixed(1),
+          updatedAt: DateTime.now(),
+        );
+      }).toList();
+    }
   }
 
 
   @override
   Widget build(BuildContext context) {
+    // todo("another drilling data to fix")
     final pages = tracks.map((t) {
       final varMap = <String, num Function(DrillingData)>{
         for (var p in parameterBox!.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
       };
+
+      final varMapDepth = <String, num Function(DepthDrillingData)>{
+        for (var p in parameterBox!.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
+      };
+
       final colorMap = {
         for (var p in parameterBox!.values.where((p) => p.trackType == t)) p.name: p.color,
       };
@@ -83,7 +107,7 @@ class MultiChart extends StatelessWidget {
           key: ValueKey('multi-$mode-$t'),
           title: CFormatter.capitalize(t),
           trackType: t,
-          variableMap: varMap,
+          variableMap: varMapDepth,
           controller: controller,
           colorMap: colorMap,
         );
@@ -99,14 +123,16 @@ class MultiChart extends StatelessWidget {
             children: [
               PageView(controller: pageController, children: pages),
               if (!hideToolbar) ChartControlButtons(
-                  parentContext: context,
-                  controller: pageController,
-                  pageNotifier: pageNotifier,
-                  trackTypes: trackTypes,
-                  drillingController: controller,
-                  wellActive: wellActive,
-                  parameterBox: parameterBox!,
-                  onFieldChanged: onFieldChanged)
+                parentContext: context,
+                controller: pageController,
+                pageNotifier: pageNotifier,
+                trackTypes: trackTypes,
+                drillingController: controller,
+                wellActive: wellActive,
+                parameterBox: parameterBox!,
+                onFieldChanged: onFieldChanged,
+                mode: mode,
+              )
             ],
           ),
         ),

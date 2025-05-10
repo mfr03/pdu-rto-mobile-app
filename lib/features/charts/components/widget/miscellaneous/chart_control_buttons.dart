@@ -18,6 +18,7 @@ class ChartControlButtons extends StatelessWidget {
   final WellActive wellActive;
   final Box<ParameterItem> parameterBox;
   final OnFieldChanged onFieldChanged;
+  final String mode;
 
   const ChartControlButtons({super.key,
     required this.parentContext,
@@ -27,7 +28,9 @@ class ChartControlButtons extends StatelessWidget {
     required this.drillingController,
     required this.wellActive,
     required this.parameterBox,
-    required this.onFieldChanged});
+    required this.onFieldChanged,
+    required this.mode
+  });
 
   void _showTrackSettingsDialog(String trackType) async {
     showDialog(
@@ -169,7 +172,13 @@ class ChartControlButtons extends StatelessWidget {
                   tooltip: 'Load older data',
                   onPressed: () async {
                     onFieldChanged("_isSearching", true);
-                    await drillingController.moveBackward(wellActive: wellActive);
+
+                    if (mode == 'time') {
+                      drillingController.moveBackward(wellActive: wellActive, mode: "time");
+                    } else {
+                      drillingController.moveBackward(wellActive: wellActive, mode: "depth");
+                    }
+
                     onFieldChanged("_isSearching", false);
                   },
                 ),
@@ -181,7 +190,7 @@ class ChartControlButtons extends StatelessWidget {
                   color: CColors.primaryColor,
                   tooltip: 'Reset to live data',
                   onPressed: () {
-                    drillingController.reset();
+                    drillingController.resetData();
                     onFieldChanged("", null);
                   },
                 ),
@@ -194,7 +203,13 @@ class ChartControlButtons extends StatelessWidget {
                   tooltip: 'Load newer data',
                   onPressed: () async {
                     onFieldChanged("_isSearching", true);
-                    await drillingController.fastForward(wellActive: wellActive);
+
+                    if (mode == 'time') {
+                      await drillingController.fastForwardTime(wellActive: wellActive);
+                    } else {
+                      await drillingController.fastForwardDepth(wellActive: wellActive);
+                    }
+
                     onFieldChanged("_isSearching", false);
                   },
                 ),
