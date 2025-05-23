@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/parameter_notification_setting.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_registrar.g.dart';
@@ -9,6 +10,9 @@ class HiveService {
 
   static const _userWells = 'user_wells';
   static const _userParameters= 'user_parameters';
+  static const _userParametersDepth = 'user_parameters_depth';
+  static const _parameterNotificationSettings = 'parameter_notification_settings';
+
 
   static Future<void> initializeHive() async {
         final appDocumentDir = await getApplicationDocumentsDirectory();
@@ -19,6 +23,18 @@ class HiveService {
 
       static Future<Box<ParameterItem>> openParameterBox() async {
         return await Hive.openBox<ParameterItem>(_userParameters);
+      }
+
+      static Future<Box<ParameterItem>> openDepthParameterBox() async {
+        return await Hive.openBox<ParameterItem>(_userParametersDepth);
+      }
+
+      static Future<Box<ParameterNotificationSetting>> openParameterNotificationSettings() async {
+        return await Hive.openBox<ParameterNotificationSetting>(_parameterNotificationSettings);
+      }
+
+      static String getParameterNotificationBoxName() {
+        return _parameterNotificationSettings;
       }
 
       static Future<Box<WellActive>> openSavedWells() {
@@ -36,6 +52,36 @@ class HiveService {
         final box = await openSavedWells();
         return box.get(token);
       }
+
+      static String _getNotificationSettingKey(String wellApiToken, String parameterJsonKey) {
+        return "${wellApiToken}_$parameterJsonKey";
+      }
+
+      static Future<void> saveNotificationSetting(ParameterNotificationSetting setting) async {
+        final box = await openParameterNotificationSettings();
+        final key = _getNotificationSettingKey(setting.wellApiToken, setting.parameterJsonKey);
+        await box.put(key, setting);
+      }
+
+      static Future<ParameterNotificationSetting?> getNotificationSetting(String wellApiToken, String parameterJsonKey) async {
+        final box = await openParameterNotificationSettings();
+        final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
+        return box.get(key);
+      }
+
+      static Future<List<ParameterNotificationSetting>> getEnabledSettingsForWell(String wellApiToken) async {
+        final box = await openParameterNotificationSettings();
+        // Since keys are composite, filter values. If many settings, consider well-specific boxes or indexing.
+        return box.values.where((s) => s.wellApiToken == wellApiToken && s.isEnabled).toList();
+      }
+
+      static Future<void> deleteNotificationSetting(String wellApiToken, String parameterJsonKey) async {
+        final box = await openParameterNotificationSettings();
+        final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
+        await box.delete(key);
+        print("Deleted notification setting for key: $key");
+      }
+
 
       static Future<void> initializeDefaultData(Box<ParameterItem> box) async {
         await box.addAll(
@@ -225,5 +271,75 @@ class HiveService {
             ),
           ]
         );
+      }
+
+      static Future<void> initializeDefaultDepthData(Box<ParameterItem> box) async {
+        await box.addAll([
+
+          ParameterItem(
+            name: 'Measured Depth (m)',
+            jsonKey: 'md', // Key from DepthDrillingData
+            color: Colors.blue,
+            scaleStart: 0,
+            scaleEnd: 6000,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            trackType: 'depth_primary', // Example track type for depth
+            value: '0',
+            apiName: 'Measured Depth', // Optional: API name if different
+          ),
+
+          ParameterItem(
+            name: 'TVD (m)',
+            jsonKey: 'tvd', // Key from DepthDrillingData
+            color: Colors.green,
+            scaleStart: 0,
+            scaleEnd: 6000,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            trackType: 'depth_primary',
+            value: '0',
+            apiName: 'True Vertical Depth',
+          ),
+
+          ParameterItem(
+            name: 'ROP Inst (m/hr)',
+            jsonKey: 'ropi', // Key from DepthDrillingData
+            color: Colors.orange,
+            scaleStart: 0,
+            scaleEnd: 200,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            trackType: 'depth_performance',
+            value: '0',
+            apiName: 'Rate of Penetration Inst.',
+          ),
+
+          ParameterItem(
+            name: 'WOB Avg (klbf)',
+            jsonKey: 'woba', // Key from DepthDrillingData
+            color: Colors.purple,
+            scaleStart: 0,
+            scaleEnd: 100,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            trackType: 'depth_mechanical',
+            value: '0',
+            apiName: 'Weight on Bit Avg.',
+          ),
+
+          ParameterItem(
+            name: 'ECD (sg)',
+            jsonKey: 'ecda', // Key from DepthDrillingData
+            color: Colors.teal,
+            scaleStart: 0,
+            scaleEnd: 3,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            trackType: 'depth_mud',
+            value: '0',
+            apiName: 'Equivalent Circulating Density',
+          ),
+        ]);
       }
 }

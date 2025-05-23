@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
-import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/chart/multi_chart.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/chart/single_depth_chart.dart';
@@ -59,6 +58,7 @@ class ChartDepthPage extends StatelessWidget {
       for (var p in parameterBox!.values.where((p) => p.trackType == t))
         p.name: p.color
     },
+    parameterBox: parameterBox!,
   ))
       .toList();
 
@@ -70,7 +70,7 @@ class ChartDepthPage extends StatelessWidget {
     return parameterBox!.values
         .where((p) => p.trackType == track && p.isVisible)
         .map((p) {
-      final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
+      final raw = last.rawDataOriginal[p.jsonKey]?.toString() ?? '0';
       final v = double.tryParse(raw) ?? 0.0;
       return p.copyWith(
         value: v.toStringAsFixed(1),

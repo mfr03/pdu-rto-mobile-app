@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
@@ -10,6 +12,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/miscellaneo
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
+import 'package:pdu_mobile_rto_app/utils/well_utils.dart';
 
 class ChartTimePage extends StatelessWidget {
 
@@ -62,19 +65,33 @@ class ChartTimePage extends StatelessWidget {
 
 
   List<ParameterItem> _buildDashboardParams(int pageIndex) {
-    final data = controller.displayedData;
-    if (data.isEmpty) return [];
-    final last = data.last;
-    final track = trackTypes[pageIndex];
+
+    DrillingData? dataPointForDashboard;
+
+    bool isCurrentlyLive = isWellCompleted(wellActive: wellActive);
+
+    if (isCurrentlyLive) {
+      dataPointForDashboard = controller.latestLiveTimeDataPoint.value;
+    } else {
+      dataPointForDashboard = controller.displayedData.isNotEmpty
+          ? controller.displayedData.last
+          : (controller.historicalTimeData.isNotEmpty ? controller.historicalTimeData.last : null);
+    }
+
+    if (dataPointForDashboard == null || trackTypes.isEmpty || pageIndex < 0 || pageIndex >= trackTypes.length) {
+      return [];
+    }
+
+    final currentTrackType = trackTypes[pageIndex];
+
     return parameterBox!.values
-        .where((p) => p.trackType == track && p.isVisible)
+        .where((p) => p.trackType == currentTrackType && p.isVisible)
         .map((p) {
-      final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
-      final v = double.tryParse(raw) ?? 0.0;
-      return p.copyWith(
-        value: v.toStringAsFixed(1),
-        updatedAt: DateTime.now(),
-      );
+          final num val = dataPointForDashboard!.value(p.jsonKey);
+          return p.copyWith(
+            value: val.toStringAsFixed(2),
+            updatedAt: DateTime.now()
+          );
     }).toList();
   }
 
@@ -177,36 +194,41 @@ class ChartTimePage extends StatelessWidget {
                       });
                     }
 
-                    return ParameterDashboard(
-                      parameterAmount: _timeChartPages.length,
-                      activeIndex: clampedIdx + 1,
-                      parameters: _buildDashboardParams(clampedIdx),
-                      parameterBox: parameterBox!,
-                      onCardTap: (i) {
-                        final count =
-                            trackTypes.length; // dynamic number of cards
-                        if (i == count + 1) {
-                          // plus card tapped
-                          showDialog(
-                            context: context,
-                            builder: (_) => AddTrackDialog(
-                              parameterBox: parameterBox!,
-                              controller: controller,
-                              wellActive: wellActive,
-                            ),
-                          );
-                        } else {
-                          final newPage = i - 1;
-                          timeCtrl.jumpToPage(newPage);
-                          timeNotifier.value = newPage;
-                        }
-                      },
-                    );
+                    return Obx(() {
+
+                      if(!isDashboardVisible) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return ParameterDashboard(
+                        parameterAmount: _timeChartPages.length,
+                        activeIndex: clampedIdx + 1,
+                        parameters: _buildDashboardParams(clampedIdx),
+                        parameterBox: parameterBox!,
+                        onCardTap: (i) {
+                          final count =
+                              trackTypes.length; // dynamic number of cards
+                          if (i == count + 1) {
+                            // plus card tapped
+                            showDialog(
+                              context: context,
+                              builder: (_) => AddTrackDialog(
+                                parameterBox: parameterBox!,
+                                controller: controller,
+                                wellActive: wellActive,
+                              ),
+                            );
+                          } else {
+                            final newPage = i - 1;
+                            timeCtrl.jumpToPage(newPage);
+                            timeNotifier.value = newPage;
+                          }
+                        },
+                      );
+                    });
                   }
                 ),
               ),
-
-
             const SizedBox(height: 16)
           ],
         ),

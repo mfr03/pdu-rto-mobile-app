@@ -1,8 +1,12 @@
 plugins {
     id "com.android.application"
+    // START: FlutterFire Configuration
+    id 'com.google.gms.google-services'
+    // END: FlutterFire Configuration
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+
 }
 
 android {
@@ -11,12 +15,13 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = JavaVersion.VERSION_17
     }
 
     defaultConfig {
@@ -28,6 +33,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -37,8 +44,27 @@ android {
             signingConfig = signingConfigs.debug
         }
     }
+
+
 }
 
 flutter {
     source = "../.."
 }
+
+
+
+
+dependencies {
+
+
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5' // Or the latest version
+
+
+    implementation platform('com.google.firebase:firebase-bom:33.1.0') // Import the BoM, check for latest
+    implementation 'com.google.firebase:firebase-messaging' // Dependency for FCM
+    implementation 'com.google.firebase:firebase-analytics' // Optional, but often used
+
+
+}
+

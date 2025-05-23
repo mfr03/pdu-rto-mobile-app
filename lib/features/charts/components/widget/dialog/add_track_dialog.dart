@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:get_it/get_it.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_unit.dart';
@@ -180,9 +181,11 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   }
 
   Future<void> _loadVariables() async {
+    final PduApi api = GetIt.I<PduApi>();
+
     try {
-      final vars = await PduApi.fetchVariables();
-      final units = await PduApi.fetchUnits();
+      final vars = await api.fetchVariables();
+      final units = await api.fetchUnits();
 
       setState(() {
         _availableVars = vars;

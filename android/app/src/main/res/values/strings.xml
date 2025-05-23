@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_notification_channel_id">pdu_rto_notifications</string>
+    <string name="default_notification_channel_name">PDU App Alerts</string>
+</resources>

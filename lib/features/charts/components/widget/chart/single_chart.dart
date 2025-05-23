@@ -41,6 +41,18 @@ class _SingleChartState extends State<SingleChart>
 
     return Obx(() {
       final dataList = widget.controller.displayedData.toList();
+
+
+      if (dataList.isEmpty) { // Add a check for empty data
+        return Center(
+          child: Text(
+            "No data available for '${widget.title}'",
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        );
+      }
+
+
       return Container(
         padding: const EdgeInsets.all(8),
         child: _buildTrackChart(dataList),

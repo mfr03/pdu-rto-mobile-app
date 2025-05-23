@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
@@ -19,7 +19,8 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
   void initState() {
     super.initState();
     // Kick off the network call
-    _futureWells = PduApi.fetchActiveWells();
+    final PduApi api = GetIt.I<PduApi>();
+    _futureWells = api.fetchActiveWells();
   }
 
   @override

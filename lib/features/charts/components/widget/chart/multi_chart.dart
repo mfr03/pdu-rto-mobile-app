@@ -49,10 +49,10 @@ class MultiChart extends StatelessWidget {
       List<DrillingData> data = controller.displayedData;
       if (data.isEmpty) return [];
       final last = data.last;
-      return parameterBox!.values
+      return parameterBox.values
           .where((p) => p.trackType == track && p.isVisible)
           .map((p) {
-        final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
+        final raw = last.rawDataOriginal[p.jsonKey]?.toString() ?? '0';
         final v = double.tryParse(raw) ?? 0.0;
         return p.copyWith(
           value: v.toStringAsFixed(1),
@@ -63,10 +63,10 @@ class MultiChart extends StatelessWidget {
       List<DepthDrillingData> data = controller.displayedDataDepth;
       if (data.isEmpty) return [];
       final last = data.last;
-      return parameterBox!.values
+      return parameterBox.values
           .where((p) => p.trackType == track && p.isVisible)
           .map((p) {
-        final raw = last.rawData[p.jsonKey]?.toString() ?? '0';
+        final raw = last.rawDataOriginal[p.jsonKey]?.toString() ?? '0';
         final v = double.tryParse(raw) ?? 0.0;
         return p.copyWith(
           value: v.toStringAsFixed(1),
@@ -82,15 +82,15 @@ class MultiChart extends StatelessWidget {
     // todo("another drilling data to fix")
     final pages = tracks.map((t) {
       final varMap = <String, num Function(DrillingData)>{
-        for (var p in parameterBox!.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
+        for (var p in parameterBox.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
       };
 
       final varMapDepth = <String, num Function(DepthDrillingData)>{
-        for (var p in parameterBox!.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
+        for (var p in parameterBox.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
       };
 
       final colorMap = {
-        for (var p in parameterBox!.values.where((p) => p.trackType == t)) p.name: p.color,
+        for (var p in parameterBox.values.where((p) => p.trackType == t)) p.name: p.color,
       };
       if (mode == 'time') {
         return SingleChart(
@@ -110,6 +110,7 @@ class MultiChart extends StatelessWidget {
           variableMap: varMapDepth,
           controller: controller,
           colorMap: colorMap,
+          parameterBox: parameterBox,
         );
       }
     }).toList();
@@ -129,7 +130,7 @@ class MultiChart extends StatelessWidget {
                 trackTypes: trackTypes,
                 drillingController: controller,
                 wellActive: wellActive,
-                parameterBox: parameterBox!,
+                parameterBox: parameterBox,
                 onFieldChanged: onFieldChanged,
                 mode: mode,
               )
@@ -148,7 +149,7 @@ class MultiChart extends StatelessWidget {
                   parameterAmount: pages.length,
                   activeIndex: idx + 1,
                   parameters: _dashboardItems(track, idx),
-                  parameterBox: parameterBox!,
+                  parameterBox: parameterBox,
                   onCardTap: (i) {
                     final count = tracks.length;        // use the passed-in list
                     if (i == count + 1) {
@@ -156,7 +157,7 @@ class MultiChart extends StatelessWidget {
                       showDialog(
                         context: context,
                         builder: (_) => AddTrackDialog(
-                          parameterBox: parameterBox!,
+                          parameterBox: parameterBox,
                           controller: controller,
                           wellActive: wellActive,
                         ),

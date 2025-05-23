@@ -144,6 +144,11 @@ class ChartControlButtons extends StatelessWidget {
       valueListenable: pageNotifier,
       builder: (_, pageIndex, __) {
         // clamp to valid range
+
+        if(trackTypes.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
         final idx = pageIndex.clamp(0, trackTypes.length - 1);
         final String? trackType = trackTypes.isNotEmpty ? trackTypes[idx] : null;
 
@@ -190,7 +195,7 @@ class ChartControlButtons extends StatelessWidget {
                   color: CColors.primaryColor,
                   tooltip: 'Reset to live data',
                   onPressed: () {
-                    drillingController.resetData();
+                    drillingController.resetHistoricalTimeData();
                     onFieldChanged("", null);
                   },
                 ),
@@ -205,9 +210,9 @@ class ChartControlButtons extends StatelessWidget {
                     onFieldChanged("_isSearching", true);
 
                     if (mode == 'time') {
-                      await drillingController.fastForwardTime(wellActive: wellActive);
+                      await drillingController.fastForwardTimeChart(wellActive: wellActive);
                     } else {
-                      await drillingController.fastForwardDepth(wellActive: wellActive);
+                      // await drillingController.(wellActive: wellActive);
                     }
 
                     onFieldChanged("_isSearching", false);

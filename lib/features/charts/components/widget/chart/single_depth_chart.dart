@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
-import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -14,6 +13,7 @@ class SingleDepthChart extends StatefulWidget {
   final Map<String, num Function(DepthDrillingData)> variableMap;
   final DrillingController controller;
   final Map<String, Color> colorMap;
+  final Box<ParameterItem> parameterBox;
 
   const SingleDepthChart({
     super.key,
@@ -22,6 +22,7 @@ class SingleDepthChart extends StatefulWidget {
     required this.variableMap,
     required this.controller,
     required this.colorMap,
+    required this.parameterBox,
   });
 
   @override
@@ -38,6 +39,7 @@ class _SingleDepthChartState extends State<SingleDepthChart>
     super.build(context);
     return Obx(() {
       final dataList = widget.controller.displayedDataDepth.toList();
+
       return Padding(
         padding: const EdgeInsets.all(8),
         child: _depthChart(dataList),
@@ -45,59 +47,61 @@ class _SingleDepthChartState extends State<SingleDepthChart>
     });
   }
 
-  /// identical idea to the time‑based chart, just with a NumericAxis on X
   Widget _depthChart(List<DepthDrillingData> data) {
-    //---------------------------------------------------------------
-    // 1. Build a separate numeric Y‑axis for every parameter
-    //---------------------------------------------------------------
     final paramNames = widget.variableMap.keys.toList();
     late final NumericAxis primaryAxis;
     final additionalAxes = <NumericAxis>[];
 
-    if (paramNames.isNotEmpty) {
-      final first = paramNames.first;
-      final firstMin =
-      Hive.box<ParameterItem>('user_parameters')
-          .values
-          .firstWhere((p) => p.name == first)
-          .scaleStart
-          .toDouble();
-      final firstMax =
-      Hive.box<ParameterItem>('user_parameters')
-          .values
-          .firstWhere((p) => p.name == first)
-          .scaleEnd
-          .toDouble();
 
-      primaryAxis = NumericAxis(
-        name: first,
-        minimum: firstMin,
-        maximum: firstMax,
-        opposedPosition: true,
-        axisLine: const AxisLine(width: 0),
-        majorGridLines: const MajorGridLines(width: 2, dashArray: [4,3]),
-        isVisible: true,
-        labelStyle: const TextStyle(color: Colors.transparent, fontSize: 0),// <--- set this to true if you want to see it
+    if (paramNames.isNotEmpty) {
+      final firstParamName = paramNames.first;
+
+      final ParameterItem? firstParamItem = widget.parameterBox.values
+          .firstWhere(
+            (p) => p.name == firstParamName && p.trackType == widget.trackType,
       );
 
-      for (final name in paramNames.skip(1)) {
-        final item = Hive.box<ParameterItem>('user_parameters')
-            .values
-            .firstWhere((p) => p.name == name);
-        additionalAxes.add(
-          NumericAxis(
-            name: name,
-            minimum: item.scaleStart.toDouble(),
-            maximum: item.scaleEnd.toDouble(),
-            opposedPosition: true,
-            axisLine: const AxisLine(width: 0),
-            majorGridLines: const MajorGridLines(width: -5, dashArray: [4,3]),
-            isVisible: false,
-          ),
+      if (firstParamItem == null) {
+        primaryAxis = NumericAxis(title: const AxisTitle(
+            text: 'Error: Param not found'));
+      } else {
+
+        final double firstMin = firstParamItem.scaleStart.toDouble();
+        final double firstMax = firstParamItem.scaleEnd.toDouble();
+
+        primaryAxis = NumericAxis(
+          name: firstParamName,
+          minimum: firstMin,
+          maximum: firstMax,
+          opposedPosition: true,
+          axisLine: const AxisLine(width: 0),
+          majorGridLines: const MajorGridLines(width: 2, dashArray: [4,3]),
+          isVisible: true,
+          labelStyle: const TextStyle(color: Colors.transparent, fontSize: 0),//
         );
+
+        for (final name in paramNames.skip(1)) {
+          final ParameterItem? item = widget.parameterBox.values.firstWhere(
+                (p) => p.name == name && p.trackType == widget.trackType,
+          );
+          if (item != null) {
+            additionalAxes.add(
+              NumericAxis(
+                name: name,
+                minimum: item.scaleStart.toDouble(),
+                maximum: item.scaleEnd.toDouble(),
+                opposedPosition: true,
+                axisLine: const AxisLine(width: 0),
+                majorGridLines: const MajorGridLines(width: -5, dashArray: [4,3]),
+                isVisible: false,
+              ),
+            );
+          }
+        }
       }
-    } else {
+    }  else {
       primaryAxis = NumericAxis();
+      return Center(child: Text("No parameters configured for '${widget.title}'"));
     }
 
     //---------------------------------------------------------------
@@ -136,6 +140,11 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       // 3. One LineSeries per parameter → bound to its axis by name
       //-------------------------------------------------------------
       series: widget.variableMap.entries.map((e) {
+
+
+
+
+
         return LineSeries<DepthDrillingData, num>(
           name: e.key,
           color: widget.colorMap[e.key],

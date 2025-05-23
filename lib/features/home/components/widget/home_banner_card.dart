@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 
-import '../../../utils/constants/colors.dart';
+
 
 
 class HomeBannerCard extends StatelessWidget {

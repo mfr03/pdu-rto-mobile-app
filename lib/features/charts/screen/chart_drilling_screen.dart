@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_depth_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/shared_preferences/model/depth_config.dart';
@@ -8,10 +9,11 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/dept
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_depth_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_time_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/notification/screen/notification_settings_screen.dart';
 import '../../../data/services/pdu_api/model/well_active.dart';
 import '../../../utils/constants/colors.dart';
 import '../components/widget/dialog/add_parameter_dialog.dart';
-import '../../home/home_screen_widget.dart';
+import '../../home/screen/home_screen_widget.dart';
 import '../model/parameter_item.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:get_it/get_it.dart';
@@ -29,7 +31,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // Core data & Hive box
   final DrillingController controller = GetIt.instance<DrillingController>();
   Box<ParameterItem>? parameterBox;
+  Box<ParameterItem>? depthParameterBox;
   StreamSubscription<BoxEvent>? _paramSub;
+  StreamSubscription<BoxEvent>? _depthParameterSub;
   // Loading & UI state
   bool _isDataLoaded = false;
   bool _isSearching = false;
@@ -38,7 +42,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // Bottom nav
   int _selectedIndex = 0;
   int _lastInitializedTab = -1;
-  String? _multiMode; // 'time', 'depth', or null
+  String? _multiMode;
 
   // Single-chart controllers & notifiers
   final PageController _timeCtrl = PageController();
@@ -55,6 +59,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // For pop‑up menu positioning
   Offset? _tapPosition;
 
+  Timer? _realtimeHomeTimer;
+  bool _isWellConsideredLive = true;
+
   late DepthConfig _depthConfig;
   bool _depthConfigLoaded = false;
   bool _depthDialogFirstTime = true;
@@ -62,18 +69,55 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   @override
   void initState() {
     super.initState();
-    // Load Hive & data
+    final wellEndDate = DateTime.parse(widget.wellActive.endDate);
+    final now = DateTime.now();
+
+    if(wellEndDate != null && wellEndDate.isBefore(now)) {
+      _isWellConsideredLive = false;
+    } else {
+      _isWellConsideredLive = true;
+    }
+
+
     _loadDepthConfig();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
 
+      setState(() => _isSearching = true);
+
+      // TODO(a null safety net if boxes arent opening properly)
       parameterBox = await HiveService.openParameterBox();
       _paramSub = parameterBox!.watch().listen((_) => setState(() {}));
-      setState(() => _isDataLoaded = true);
-      setState(() => _isSearching = true);
-      setState(() => _isSearching = false);
+
+      depthParameterBox = await HiveService.openDepthParameterBox();
+      _depthParameterSub = depthParameterBox!.watch().listen((_) => setState(() {}));
+
+
       _setupPageListeners();
 
-      await controller.initializeData(wellActive: widget.wellActive);
+      setState(() => _isDataLoaded = true);
+
+      if(_isWellConsideredLive) {
+        await controller.initializeLiveTimeData(wellActive: widget.wellActive);
+
+        _startRealtimeHomeUpdates();
+      } else {
+        await controller.initializeHistoricalTimeDataForHome(wellActive: widget.wellActive);
+      }
+
+      if (_depthConfigLoaded && _depthConfig.disabled) {
+        await controller.initializeDepthData(wellActive: widget.wellActive);
+      }
+
+      await controller.setActiveWellForNotifications(widget.wellActive);
+
+      if(mounted) {
+        setState(() {
+          _isDataLoaded = true;
+          _isSearching = false;
+        });
+      }
+
     });
 
     // Multi‑chart page listeners
@@ -83,6 +127,8 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _multiCtrl2.addListener(() {
       _multiNotifier2.value = (_multiCtrl2.page ?? 0).round();
     });
+
+    _startRealtimeHomeUpdates();
   }
 
   @override
@@ -96,27 +142,101 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _multiNotifier1.dispose();
     _multiNotifier2.dispose();
     _paramSub?.cancel();
+    _depthParameterSub?.cancel();
     controller.deleteData();
+    _realtimeHomeTimer?.cancel();
     super.dispose();
   }
 
+  void _setupPageListeners() {
+    _timeCtrl.addListener(() {
+      _timeNotifier.value = (_timeCtrl.page ?? 0).round();
+    });
+    _depthCtrl.addListener(() {
+      _depthNotifier.value = (_depthCtrl.page ?? 0).round();
+    });
+  }
+
+  void _startRealtimeHomeUpdates() {
+    _realtimeHomeTimer?.cancel();
+    _realtimeHomeTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted || !_isWellConsideredLive) {
+        timer.cancel();
+        return;
+      }
+
+      bool isTimeChartActiveAndAtLiveEdge = false;
+      if(_selectedIndex == 1) {
+        if(controller.historicalTimeData.isNotEmpty) {
+          int currentlyVisibleEndIndex = controller.timeChartCurrentIndex.value + controller.displayedDataPoints;
+          if(currentlyVisibleEndIndex >= controller.historicalTimeData.length) {
+            isTimeChartActiveAndAtLiveEdge = true;
+          }
+        } else {
+          isTimeChartActiveAndAtLiveEdge = true;
+        }
+      }
+
+      controller.fetchAndUpdateLatestLiveTimeData(
+          wellActive: widget.wellActive,
+          shouldAutoScrollTimeChart: isTimeChartActiveAndAtLiveEdge
+      );
+    });
+  }
+
+  Future<void> _loadDepthConfig() async {
+    final token = widget.wellActive.isApiToken;
+    final cfg = await ChartDepthService.loadConfig(token);
+
+    if(cfg.disabled) {
+      _depthDialogFirstTime = false;
+    }
+
+    if(mounted) {
+      setState(() {
+        _depthConfig = cfg;
+        _depthConfigLoaded = true;
+      });
+    }
+  }
+
+
   Future<void> _initializeDataForCurrentTab() async {
-    if(_selectedIndex == _lastInitializedTab) return;
+    if (_selectedIndex == 0) {
+      return;
+    }
+
+    bool needsInitialLoad = false;
+    if (_selectedIndex == 1 && controller.historicalTimeData.isEmpty) {
+      needsInitialLoad = true;
+    } else if (_selectedIndex == 2 && controller.depthData.isEmpty) {
+      needsInitialLoad = true;
+    }
+
+    if (!needsInitialLoad && _selectedIndex == _lastInitializedTab) {
+      if (_selectedIndex == 1) controller.updateDisplayedTimeChartData();
+      if (_selectedIndex == 2) controller.updateDisplayedDepthChartData();
+      _lastInitializedTab = _selectedIndex;
+      return;
+    }
 
     setState(() => _isSearching = true);
 
-    if (_selectedIndex == 2 || _multiMode == 'depth') {
+    if (_selectedIndex == 2 || (_multiMode == 'depth' && _selectedIndex != 0)) {
+      debugPrint("Initializing depth data for chart tab.");
       await controller.initializeDepthData(wellActive: widget.wellActive);
-      debugPrint("depth");
-    } else if (_selectedIndex == 1 || _multiMode == 'time') {
-      await controller.initializeData(wellActive: widget.wellActive);
-      debugPrint("time");
+    } else if (_selectedIndex == 1 || (_multiMode == 'time' && _selectedIndex != 0)) {
+      print("CHART_SCREEN: Initializing Time Chart Data. Current historicalTimeData length: ${controller.historicalTimeData.length}");
+      await controller.initializeData(wellActive: widget.wellActive); // This is your historical loader
+      print("CHART_SCREEN: After controller.initializeData. New historicalTimeData length: ${controller.historicalTimeData.length}, displayedData length: ${controller.displayedData.length}");
     }
 
-    setState(() {
-      _isSearching = false;
-      _lastInitializedTab = _selectedIndex;
-    });
+    if (mounted) {
+      setState(() {
+        _isSearching = false;
+        _lastInitializedTab = _selectedIndex;
+      });
+    }
 }
 
   void _handleTabChange(int index) {
@@ -130,26 +250,22 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _initializeDataForCurrentTab();
   }
 
-  Future<void> _loadDepthConfig() async {
-    final token = widget.wellActive.isApiToken;
-    final cfg = await ChartDepthService.loadConfig(token);
-
-    if(cfg.disabled) {
-      _depthDialogFirstTime = false;
-    }
-
-    setState(() {
-      _depthConfig = cfg;
-      _depthConfigLoaded = true;
-    });
-  }
-
   // Todo()
   Future<void> _onDepthTabSelected() async {
 
-    if (!_depthConfigLoaded || _depthConfig.disabled) return;
+    if(!_depthConfigLoaded) return;
 
-    bool shouldLoadData = true;
+    if (!_depthConfig.disabled || _depthDialogFirstTime) {
+      if(controller.depthData.isEmpty) {
+        setState(() => _isSearching = true);
+        await controller.initializeDepthData(wellActive: widget.wellActive);
+        setState(() => _isSearching = false);
+      } else {
+        controller.updateDisplayedDepthChartData();
+      }
+      _depthDialogFirstTime = false;
+      return;
+    }
 
     if (!_depthConfig.disabled && _depthDialogFirstTime) {
       final result = await showDialog<DepthConfigResult>(
@@ -161,33 +277,31 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       );
 
       if (result == null) {
-        shouldLoadData = false;
+        if (controller.depthData.isEmpty) {
+          controller.updateDisplayedDepthChartData();
+        }
+        return;
       } else {
-        debugPrint("saved");
         await ChartDepthService.saveRange(
-        widget.wellActive.isApiToken,
+            widget.wellActive.isApiToken,
             result!.start,
             result!.end
         );
         if(result.doNotShowAgain) {
           await ChartDepthService.disableDialog(widget.wellActive.isApiToken);
+          _depthConfig = DepthConfig(start: result.start, end: result.end, disabled: true);
+        } else {
+          _depthConfig = DepthConfig(start: result.start, end: result.end, disabled: false);
         }
+
+        controller.depthData.clear();
+        setState(() => _isSearching = true);
+        await controller.initializeDepthData(wellActive: widget.wellActive);
+        setState(() => _isSearching = false);
       }
-    }
-    _depthDialogFirstTime = false;
-    if(shouldLoadData ) {
-      await controller.initializeDepthData(wellActive: widget.wellActive);
     }
   }
 
-  void _setupPageListeners() {
-    _timeCtrl.addListener(() {
-      _timeNotifier.value = (_timeCtrl.page ?? 0).round();
-    });
-    _depthCtrl.addListener(() {
-      _depthNotifier.value = (_depthCtrl.page ?? 0).round();
-    });
-  }
 
   void _onFieldChanged(String name, dynamic value) {
     setState(() {
@@ -207,10 +321,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     });
   }
 
-  List<String> get _trackTypes {
-    if (parameterBox == null) return [];
-    return parameterBox!.values.map((p) => p.trackType).toSet().toList();
-  }
 
   void _showChartTypeMenu(int index) async {
 
@@ -312,8 +422,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   @override
   Widget build(BuildContext context) {
 
-
-    if (parameterBox == null) {
+    if (parameterBox == null || depthParameterBox == null) {
       return Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -321,10 +430,16 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
     // your five pages
     final pages = [
-      HomeScreenWidget(controller: controller, parameterBox: parameterBox),
+      HomeScreenWidget(
+          controller: controller,
+          parameterBox: parameterBox,
+          depthParameterBox: depthParameterBox,
+          isWellLive: _isWellConsideredLive,
+          currentWellApiToken: widget.wellActive.isApiToken,
+      ),
       ChartTimePage(
           multiMode: _multiMode,
-          trackTypes: _trackTypes,
+          trackTypes: parameterBox!.values.map((p) => p.trackType).toSet().toList(),
           controller: controller,
           multiCtrl1: _multiCtrl1,
           multiCtrl2: _multiCtrl2,
@@ -338,7 +453,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           onFieldChanged: _onFieldChanged),
       ChartDepthPage(
           multiMode: _multiMode,
-          trackTypes: _trackTypes,
+          trackTypes: depthParameterBox!.values.map((p) => p.trackType).toSet().toList(),
           controller: controller,
           multiCtrl1: _multiCtrl1,
           multiCtrl2: _multiCtrl2,
@@ -346,12 +461,12 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           multiNotifier1: _multiNotifier1,
           multiNotifier2: _multiNotifier2,
           depthNotifier: _depthNotifier,
-          parameterBox: parameterBox,
+          parameterBox: depthParameterBox,
           isDashboardVisible: _isDashboardVisible,
           wellActive: widget.wellActive,
           onFieldChanged: _onFieldChanged),
       const Center(child: Text('Placeholder 3')),
-      const Center(child: Text('Placeholder 4')),
+      NotificationSettingsScreen(wellActive: widget.wellActive)
     ];
 
 
@@ -368,14 +483,29 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         child:_selectedIndex == 0
             ? FloatingActionButton(
           backgroundColor: CColors.primaryColor,
-          onPressed: () => showDialog(
-            context: context,
-            builder: (_) => AddParameterDialog(
-              wellActive: widget.wellActive,
-              parameterBox: parameterBox!,
-              controller: controller,
-            ),
-          ),
+          onPressed: () {
+            Box<ParameterItem> targetBox;
+
+            if (_selectedIndex == 0) { // Home - Time
+              targetBox = parameterBox!;
+            } else if (_selectedIndex == 1) { // Time Chart
+              targetBox = parameterBox!;
+            } else if (_selectedIndex == 2) { // Depth Chart
+              targetBox = depthParameterBox!;
+            } else {
+              return; // Or handle error
+            }
+            showDialog(
+              context: context,
+              builder: (_) => AddParameterDialog(
+                wellActive: widget.wellActive,
+                parameterBox: targetBox,
+                controller: controller,
+              ),
+            );
+
+
+          },
           child: const Icon(Icons.add),
         )
             : (_selectedIndex == 1 || _selectedIndex == 2)
@@ -395,12 +525,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           children: [
             Column(
               children: [
-
                 Expanded(child: pages[_selectedIndex]),
               ],
             ),
-
-
 
             if (!_isDataLoaded || _isSearching)
               Positioned.fill(

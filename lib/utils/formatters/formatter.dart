@@ -2,10 +2,6 @@ import 'package:intl/intl.dart';
 
 class CFormatter {
 
-  static String formatDate(DateTime? date) {
-    date ??= DateTime.now();
-    return DateFormat('dd-MMM-yyyy').format(date);
-  }
 
   static String capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
@@ -17,6 +13,18 @@ class CFormatter {
     final min = dt.minute.toString().padLeft(2, '0');
     final s = dt.second.toString().padLeft(2, '0');
     return '$y-$m-$d $h:$min:$s';
+  }
+
+  static DateTime? formatStringToDateTime(String date) {
+    if (date == null) {
+      return null;
+    }
+
+    try {
+      return DateTime.parse(date);
+    } catch (e) {
+      return null;
+    }
   }
 
 

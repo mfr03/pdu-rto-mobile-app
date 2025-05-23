@@ -33,6 +33,8 @@ class ChartDepthService {
     await p.setDouble(_keyEnd(token), end);
   }
 
+
+
   static Future<void> disableDialog(String wellId) async {
     final p = await _prefs;
     await p.setBool(_keyDisabled(wellId), true);
