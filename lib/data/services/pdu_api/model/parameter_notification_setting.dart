@@ -29,6 +29,9 @@ class ParameterNotificationSetting extends HiveObject {
   @HiveField(7)
   String? notes; // Optional user notes for the alert
 
+  @HiveField(8)
+  int? serverId;
+
   ParameterNotificationSetting({
     required this.wellApiToken,
     required this.parameterJsonKey,
@@ -38,6 +41,7 @@ class ParameterNotificationSetting extends HiveObject {
     this.isEnabled = true,
     this.lastNotificationTime,
     this.notes,
+    this.serverId
   });
 
 
@@ -47,6 +51,7 @@ class ParameterNotificationSetting extends HiveObject {
     String? condition,
     DateTime? lastNotificationTime, // Allow clearing it
     String? notes,
+    int? serverId,
   }) {
     return ParameterNotificationSetting(
       wellApiToken: wellApiToken,
@@ -57,6 +62,7 @@ class ParameterNotificationSetting extends HiveObject {
       isEnabled: isEnabled ?? this.isEnabled,
       lastNotificationTime: lastNotificationTime, // Handle explicit null for clearing
       notes: notes ?? this.notes,
+      serverId: serverId ?? this.serverId,
     );
   }
 }

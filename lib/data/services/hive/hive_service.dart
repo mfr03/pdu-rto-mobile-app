@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/data/services/notification_api/api_client.dart';
+import 'package:pdu_mobile_rto_app/data/services/notification_api/client_id_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/parameter_notification_setting.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
@@ -13,6 +16,7 @@ class HiveService {
   static const _userParametersDepth = 'user_parameters_depth';
   static const _parameterNotificationSettings = 'parameter_notification_settings';
 
+  static final ApiClient _apiClient = ApiClient();
 
   static Future<void> initializeHive() async {
         final appDocumentDir = await getApplicationDocumentsDirectory();
@@ -57,11 +61,77 @@ class HiveService {
         return "${wellApiToken}_$parameterJsonKey";
       }
 
-      static Future<void> saveNotificationSetting(ParameterNotificationSetting setting) async {
-        final box = await openParameterNotificationSettings();
-        final key = _getNotificationSettingKey(setting.wellApiToken, setting.parameterJsonKey);
-        await box.put(key, setting);
+  static Future<void> saveNotificationSetting(ParameterNotificationSetting setting, {bool syncToServer = true}) async {
+    final box = await openParameterNotificationSettings();
+    final key = _getNotificationSettingKey(setting.wellApiToken, setting.parameterJsonKey);
+
+    // Save to Hive first
+    await box.put(key, setting);
+    if (kDebugMode) {
+      print('Saved notification setting to Hive (key: $key, serverId: ${setting.serverId}, enabled: ${setting.isEnabled})');
+    }
+
+    if (!syncToServer) {
+      return;
+    }
+
+    try {
+      String userId = await ClientIdService.getPersistentClientId();
+      bool success = false;
+      int? returnedServerId;
+
+      if (setting.serverId == null) { // New rule, create on server
+        if (kDebugMode) {
+          print('Attempting to CREATE rule on server for $key. Data: well=${setting.wellApiToken}, param=${setting.parameterJsonKey}, enabled=${setting.isEnabled}');
+        }
+        returnedServerId = await _apiClient.createNotificationRule(
+          wellApiToken: setting.wellApiToken,
+          parameterJsonKey: setting.parameterJsonKey,
+          parameterName: setting.parameterName,
+          thresholdValue: setting.thresholdValue,
+          condition: setting.condition,
+          isEnabled: setting.isEnabled,
+          notes: setting.notes,
+        );
+        if (returnedServerId != null) {
+          success = true;
+          setting.serverId = returnedServerId;
+          await box.put(key, setting); // Update Hive object with the new serverId
+          if (kDebugMode) {
+            print('Rule CREATED on server (new serverId: ${setting.serverId}), updated Hive for $key.');
+          }
+        } else {
+          if (kDebugMode) {
+            print('FAILED to create rule on server for $key. Server returned null ID.');
+          }
+        }
+      } else { // Existing rule, update on server
+        if (kDebugMode) {
+          print('Attempting to UPDATE rule on server (serverId: ${setting.serverId}) for $key. Data: enabled=${setting.isEnabled}');
+        }
+        success = await _apiClient.updateNotificationRule(
+          serverRuleId: setting.serverId!,
+          // userId: userId, // Not in body of Pydantic schema for update, implied by rule
+          wellApiToken: setting.wellApiToken,
+          parameterJsonKey: setting.parameterJsonKey,
+          parameterName: setting.parameterName,
+          thresholdValue: setting.thresholdValue,
+          condition: setting.condition,
+          isEnabled: setting.isEnabled,
+          notes: setting.notes,
+        );
+        if (success && kDebugMode) {
+          print('Rule UPDATED on server (serverId: ${setting.serverId}) for $key.');
+        } else if (!success && kDebugMode) {
+          print('FAILED to update rule on server (serverId: ${setting.serverId}) for $key.');
+        }
       }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error syncing notification setting for $key to server: $e');
+      }
+    }
+  }
 
       static Future<ParameterNotificationSetting?> getNotificationSetting(String wellApiToken, String parameterJsonKey) async {
         final box = await openParameterNotificationSettings();
@@ -75,12 +145,42 @@ class HiveService {
         return box.values.where((s) => s.wellApiToken == wellApiToken && s.isEnabled).toList();
       }
 
-      static Future<void> deleteNotificationSetting(String wellApiToken, String parameterJsonKey) async {
-        final box = await openParameterNotificationSettings();
-        final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
-        await box.delete(key);
-        print("Deleted notification setting for key: $key");
+  static Future<void> deleteNotificationSetting(String wellApiToken, String parameterJsonKey, {bool syncToServer = true}) async {
+    final box = await openParameterNotificationSettings();
+    final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
+
+    ParameterNotificationSetting? settingToDelete = box.get(key);
+    int? serverIdToDelete = settingToDelete?.serverId;
+
+    await box.delete(key); // Delete from Hive first
+    if (kDebugMode) {
+      print("Deleted notification setting from Hive for key: $key (original serverId: $serverIdToDelete)");
+    }
+
+    if (!syncToServer || serverIdToDelete == null) {
+      if (syncToServer && serverIdToDelete == null && kDebugMode) {
+        print("Skipping server delete for $key because serverId was null (rule likely never synced or sync failed).");
       }
+      return;
+    }
+
+    try {
+      if (kDebugMode) {
+        print('Attempting to DELETE rule on server (serverId: $serverIdToDelete) for $key');
+      }
+      bool success = await _apiClient.deleteNotificationRule(serverRuleId: serverIdToDelete);
+      if (success && kDebugMode) {
+        print('Rule DELETED on server (serverId: $serverIdToDelete) for $key.');
+      } else if (!success && kDebugMode) {
+        print('FAILED to delete rule on server (serverId: $serverIdToDelete) for $key.');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting notification setting for $key from server: $e');
+      }
+    }
+  }
+
 
 
       static Future<void> initializeDefaultData(Box<ParameterItem> box) async {

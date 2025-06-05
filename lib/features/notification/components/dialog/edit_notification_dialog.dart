@@ -39,21 +39,23 @@ class _EditNotificationSettingDialogState
   Future<void> _saveChanges() async {
     if (_formKey.currentState!.validate()) {
       final thresholdValue = double.tryParse(_thresholdController.text);
-      if (thresholdValue == null) return; // Validator should catch
+      if (thresholdValue == null) return;
 
-      // Update the existing Hive object directly
-      widget.setting.thresholdValue = thresholdValue;
-      widget.setting.condition = _selectedCondition;
-      // widget.setting.isEnabled is handled by the Switch on the main screen
-      // widget.setting.lastNotificationTime remains unchanged unless explicitly reset elsewhere
+      // Use copyWith on the original setting to preserve all fields not being edited
+      final updatedSetting = widget.setting.copyWith(
+        thresholdValue: thresholdValue,
+        condition: _selectedCondition,
+        // If isEnabled is part of this dialog, set it here too.
+        // serverId is already part of widget.setting and will be preserved by copyWith
+      );
 
-      await widget.setting.save(); // Save the changes to Hive
+      // Call HiveService.saveNotificationSetting for Hive update and server sync
+      await HiveService.saveNotificationSetting(updatedSetting);
 
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.setting.parameterName} alert updated!')),
+        SnackBar(content: Text('${widget.setting.parameterName} alert updated & syncing!')),
       );
-      // widget.onSave(); // Call callback if provided
     }
   }
 
@@ -80,17 +82,17 @@ class _EditNotificationSettingDialogState
     );
 
     if (confirmDelete == true) {
-      await HiveService.deleteNotificationSetting(
+      await HiveService.deleteNotificationSetting( // This is already correct
         widget.setting.wellApiToken,
         widget.setting.parameterJsonKey,
       );
-      Navigator.of(context).pop(); // Pop the Edit dialog
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.setting.parameterName} alert deleted!')),
+        SnackBar(content: Text('${widget.setting.parameterName} alert deleted & syncing!')),
       );
-      // widget.onDelete(); // Call callback if provided
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -51,36 +51,37 @@ class _SetThresholdDialogState extends State<SetThresholdDialog> {
   Future<void> _saveSetting() async {
     if (_formKey.currentState!.validate()) {
       final thresholdValue = double.tryParse(_thresholdController.text);
-      if (thresholdValue == null) {
-        // Show error, should be caught by validator
-        return;
-      }
+      if (thresholdValue == null) return;
 
       final newSetting = ParameterNotificationSetting(
         wellApiToken: widget.wellApiToken,
         parameterJsonKey: widget.parameterItem.jsonKey,
-        parameterName: widget.parameterItem.name, // Store display name
+        parameterName: widget.parameterItem.name,
         thresholdValue: thresholdValue,
         condition: _selectedCondition,
         isEnabled: _isEnabled,
-        lastNotificationTime: _existingSetting?.lastNotificationTime, // Preserve last notification time unless explicitly reset
+        lastNotificationTime: _existingSetting?.lastNotificationTime, // Preserve
+        serverId: _existingSetting?.serverId, // IMPORTANT: Preserve serverId if editing
+        notes: _existingSetting?.notes, // Preserve or allow editing
       );
 
+      // This will now handle Hive save AND server sync
       await HiveService.saveNotificationSetting(newSetting);
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.parameterItem.name} notification saved!')),
+        SnackBar(content: Text('${widget.parameterItem.name} alert saved & syncing.')),
       );
     }
   }
 
   Future<void> _deleteSetting() async {
     if (_existingSetting != null) {
+      // This will now handle Hive delete AND server sync
       await HiveService.deleteNotificationSetting(
           widget.wellApiToken, widget.parameterItem.jsonKey);
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.parameterItem.name} notification deleted!')),
+        SnackBar(content: Text('${widget.parameterItem.name} alert deleted & syncing.')),
       );
     }
   }

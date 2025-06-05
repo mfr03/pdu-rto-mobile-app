@@ -159,12 +159,10 @@ class _NotificationSettingsScreenState
                 children: [
                   Switch(
                     value: setting.isEnabled,
-                    onChanged: (bool value) {
-                      // To ensure the change is reactive and updates the list item correctly,
-                      // we modify the Hive object and save it. The listener will then
-                      // call _loadSettings which calls setState.
-                      setting.isEnabled = value;
-                      setting.save(); // This triggers the box.watch() stream
+                    onChanged: (bool value) async {
+                      final updatedSetting = setting.copyWith(isEnabled: value);
+                      await HiveService.saveNotificationSetting(updatedSetting);
+
                     },
                     activeColor: CColors.primaryColor,
                     inactiveThumbColor: Colors.grey[400],

@@ -10,6 +10,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_time_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/notification/screen/notification_settings_screen.dart';
+import 'package:pdu_mobile_rto_app/features/profiles/screen/user_settings_screen.dart';
 import '../../../data/services/pdu_api/model/well_active.dart';
 import '../../../utils/constants/colors.dart';
 import '../components/widget/dialog/add_parameter_dialog.dart';
@@ -416,6 +417,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           _buildNavItem(Icons.show_chart_sharp, 2),
           _buildNavItem(Icons.chat_sharp, 3),
           _buildNavItem(Icons.notifications, 4),
+          _buildNavItem(Icons.person_outline, 5)
         ],
       );
 
@@ -466,7 +468,8 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           wellActive: widget.wellActive,
           onFieldChanged: _onFieldChanged),
       const Center(child: Text('Placeholder 3')),
-      NotificationSettingsScreen(wellActive: widget.wellActive)
+      NotificationSettingsScreen(wellActive: widget.wellActive),
+      const UserSettingsScreen(),
     ];
 
 
