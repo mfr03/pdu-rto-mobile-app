@@ -11,19 +11,17 @@ import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service
 import 'package:pdu_mobile_rto_app/features/notification/service/local_notification_service.dart';
 import 'package:pdu_mobile_rto_app/features/wells_selections/wells_active.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
+import 'package:pdu_mobile_rto_app/utils/constants/status.dart';
 import 'package:pdu_mobile_rto_app/utils/theme/theme.dart';
 import 'package:pdu_mobile_rto_app/core/di/service_locator.dart';
 import 'package:pdu_mobile_rto_app/firebase_options.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/api_client.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kDebugMode;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
+
+ValueNotifier<InitializationStatus> initializationNotifier = ValueNotifier(InitializationStatus.pending);
+String? globalInitializationError;
 
 @pragma('vm:entry-point')
-
-final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
-GlobalKey<ScaffoldMessengerState>();
-
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print("Handling a background message: ${message.messageId}");
   print('Message data: ${message.data}');
@@ -46,7 +44,6 @@ class MainApp extends StatelessWidget {
     );
 
     return MaterialApp(
-        scaffoldMessengerKey: rootScaffoldMessengerKey,
         title: 'PDU Mobile RTO',
         theme: CAppTheme.lightTheme,
         darkTheme: CAppTheme.darkTheme,
@@ -61,6 +58,9 @@ class MainApp extends StatelessWidget {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  try {
+
+  }
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform
   );

@@ -490,39 +490,39 @@ class DrillingController extends GetxController {
     }
 
     // Use the pre-loaded _currentWellEnabledSettings for efficiency
-    for (var setting in _currentWellEnabledSettings) {
-      final num currentValue = currentData.value(setting.parameterJsonKey); // Uses rawDataOriginal
-      bool breached = false;
-
-      if (setting.condition == "above" && currentValue > setting.thresholdValue) {
-        breached = true;
-      } else if (setting.condition == "below" && currentValue < setting.thresholdValue) {
-        breached = true;
-      }
-
-      if (breached) {
-        DateTime now = DateTime.now();
-        if (setting.lastNotificationTime == null ||
-            now.difference(setting.lastNotificationTime!).inMinutes >= notificationCooldownMinutes) {
-
-          String title = "Alert: ${setting.parameterName}";
-          String message = "${setting.parameterName} (${currentValue.toStringAsFixed(2)}) is ${setting.condition} your threshold (${setting.thresholdValue.toStringAsFixed(2)}).";
-
-          print("LOCAL NOTIFICATION TRIGGERED: $message");
-
-          LocalNotificationService.showNotification(
-            title: title,
-            body: message,
-            payload: "well_id=${setting.wellApiToken}&param=${setting.parameterJsonKey}",
-          );
-
-          setting.lastNotificationTime = now;
-          HiveService.saveNotificationSetting(setting);
-        } else {
-          // print("Cooldown active for ${setting.parameterName}");
-        }
-      }
-    }
+    // for (var setting in _currentWellEnabledSettings) {
+    //   final num currentValue = currentData.value(setting.parameterJsonKey); // Uses rawDataOriginal
+    //   bool breached = false;
+    //
+    //   if (setting.condition == "above" && currentValue > setting.thresholdValue) {
+    //     breached = true;
+    //   } else if (setting.condition == "below" && currentValue < setting.thresholdValue) {
+    //     breached = true;
+    //   }
+    //
+    //   if (breached) {
+    //     DateTime now = DateTime.now();
+    //     if (setting.lastNotificationTime == null ||
+    //         now.difference(setting.lastNotificationTime!).inMinutes >= notificationCooldownMinutes) {
+    //
+    //       String title = "Alert: ${setting.parameterName}";
+    //       String message = "${setting.parameterName} (${currentValue.toStringAsFixed(2)}) is ${setting.condition} your threshold (${setting.thresholdValue.toStringAsFixed(2)}).";
+    //
+    //       print("LOCAL NOTIFICATION TRIGGERED: $message");
+    //
+    //       LocalNotificationService.showNotification(
+    //         title: title,
+    //         body: message,
+    //         payload: "well_id=${setting.wellApiToken}&param=${setting.parameterJsonKey}",
+    //       );
+    //
+    //       setting.lastNotificationTime = now;
+    //       HiveService.saveNotificationSetting(setting);
+    //     } else {
+    //       // print("Cooldown active for ${setting.parameterName}");
+    //     }
+    //   }
+    // }
   }
 
 }

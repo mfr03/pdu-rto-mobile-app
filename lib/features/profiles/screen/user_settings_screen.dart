@@ -18,7 +18,7 @@ class UserSettingsScreen extends StatefulWidget {
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
   final AuthService _authService = GetIt.I<AuthService>();
   String? _email;
-  String? _employeeId;
+  String? _displayName;
 
   @override
   void initState() {
@@ -28,11 +28,11 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   Future<void> _loadUserData() async {
     final email = await _authService.getEmail();
-    final employeeId = await _authService.getEmployeeId();
+    final name = await _authService.getUserName(); // Use the new method
     if (mounted) {
       setState(() {
         _email = email;
-        _employeeId = employeeId;
+        _displayName = name; // Store the fetched/cached name
       });
     }
   }
@@ -81,10 +81,6 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // The image image_431e26.png shows a top orange bar with a logo.
-    // If you still want that visual element but not a full AppBar,
-    // you could keep a styled Container at the top.
-    // However, based on "I dont need the app bar", I'm removing it entirely.
 
     return Scaffold(
       backgroundColor: Colors.grey[100], // Light background for the overall screen
@@ -133,7 +129,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
               // User Name
               Text(
-                _employeeId ?? 'Loading...',
+                _displayName ?? 'Loading...',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: CColors.tertiaryColor,

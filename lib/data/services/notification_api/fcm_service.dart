@@ -8,7 +8,27 @@ import 'package:pdu_mobile_rto_app/features/notification/service/local_notificat
 class FcmService {
   final ApiClient _pduNotificationApiClient = GetIt.I<ApiClient>();
 
+  Future<void> handleNotificationAcknowledge(String? ruleId) async {
+    if (ruleId != null && ruleId.isNotEmpty) {
+      final ApiClient apiClient = GetIt.I<ApiClient>(); // For PDU Notification Server
+      try {
+        print('Attempting to acknowledge notification for rule ID: $ruleId (from tap)');
+        bool ackSuccess = await apiClient.acknowledgeNotification(ruleId);
+        if (ackSuccess) {
+          print('Successfully acknowledged notification for rule ID: $ruleId with server.');
+        } else {
+          print('Failed to acknowledge notification for rule ID: $ruleId with server.');
+        }
+      } catch (e) {
+        print('Error calling acknowledge API for rule ID $ruleId: $e');
+      }
+    } else {
+      print('No rule_id found in notification payload to acknowledge.');
+    }
+  }
+
   Future<void> setupFcmListeners() async {
+
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       if (kDebugMode) print("FCM Token Refreshed: $newToken");
       registerDeviceWithPduServer(newFcmToken: newToken);
@@ -21,23 +41,36 @@ class FcmService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Got a message whilst in the foreground!: ${message.notification?.title}');
       if (message.notification != null) {
-        LocalNotificationService.showNotification(
-          title: message.notification?.title ?? "New Message",
-          body: message.notification?.body ?? "",
-        );
+        String? ruleIdForPayload;
+        if (message.data.containsKey('rule_id')) {
+          ruleIdForPayload = message.data['rule_id'] as String?;
+        }
+
+        // Only show local notification if you *want* to for foreground
+        // If relying purely on server, this call would be removed.
+        // For this fix, assuming it might still be active:
+        // LocalNotificationService.showNotification(
+        //   title: message.notification?.title ?? "New Message",
+        //   body: message.notification?.body ?? "",
+        //   payload: ruleIdForPayload, // IMPORTANT: Pass the rule_id (or other identifier)
+        // );
       }
     });
 
     FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
       if (message != null) {
         print('App opened from terminated state by tapping a notification!');
-        // TODO: Handle navigation based on message.data
+        print('Terminated State Message data: ${message.data}');
+        final String? ruleId = message.data['rule_id'] as String?;
+        handleNotificationAcknowledge(ruleId);
       }
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       print('App opened from background state by tapping a notification!');
-      // TODO: Handle navigation based on message.data
+      print('Background State Message data: ${message.data}');
+      final String? ruleId = message.data['rule_id'] as String?;
+      handleNotificationAcknowledge(ruleId);
     });
 
   }

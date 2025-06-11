@@ -225,4 +225,24 @@ class ApiClient {
       return [];
     }
   }
+
+  Future<bool> acknowledgeNotification(String ruleId) async {
+    if (kDebugMode) {
+      print('ApiClient: Sending acknowledgment for rule ID: $ruleId');
+    }
+    try {
+      // Endpoint: POST /api/v1/notifications/rules/{rule_id}/acknowledge
+      final response = await _post('notifications/rules/$ruleId/acknowledge', {}); // Empty body for this POST
+
+      if (kDebugMode) {
+        print('ApiClient: Acknowledge response for rule $ruleId: ${response.statusCode}');
+      }
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('ApiClient: Error acknowledging notification for rule $ruleId: $e');
+      }
+      return false;
+    }
+  }
 }

@@ -1,5 +1,7 @@
 // lib/features/notifications/services/local_notification_service.dart
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get_it/get_it.dart';
+import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -65,8 +67,14 @@ class LocalNotificationService {
   static void _onDidReceiveNotificationResponse(NotificationResponse notificationResponse) async {
     final String? payload = notificationResponse.payload;
     print("Notification tapped with payload: $payload");
-    // Handle tap when app is in foreground or background (not terminated)
-    // Example: if (payload != null) { Get.toNamed(payload); }
+    final FcmService fcmService = GetIt.I<FcmService>();
+    if (payload != null && payload.isNotEmpty) {
+      // Assuming _handleNotificationAcknowledge is globally accessible from main.dart or a service
+      // If main.dart defines _handleNotificationAcknowledge as a top-level function, you can call it.
+      // Note: Direct calls to functions in main.dart isn't always the cleanest.
+      // Consider passing a callback to initialize() or using a shared service via GetIt.
+      fcmService.handleNotificationAcknowledge(payload); // Call the shared handler
+    }
   }
 
   // Separate handler for background taps (requires @pragma('vm:entry-point') for release mode)
@@ -74,6 +82,16 @@ class LocalNotificationService {
   static void _onDidReceiveBackgroundNotificationResponse(NotificationResponse notificationResponse) {
     final String? payload = notificationResponse.payload;
     print("BACKGROUND Notification tapped with payload: $payload");
+
+    final FcmService fcmService = GetIt.I<FcmService>();
+    if (payload != null && payload.isNotEmpty) {
+      // Assuming _handleNotificationAcknowledge is globally accessible from main.dart or a service
+      // If main.dart defines _handleNotificationAcknowledge as a top-level function, you can call it.
+      // Note: Direct calls to functions in main.dart isn't always the cleanest.
+      // Consider passing a callback to initialize() or using a shared service via GetIt.
+      fcmService.handleNotificationAcknowledge(payload); // Call the shared handler
+    }
+
     // Handle tap when app was terminated and launched by notification
   }
 

@@ -21,7 +21,7 @@ class AuthService {
   static const String _roleKey = 'auth_role';
   static const String _companyIdKey = 'auth_company_id';
   static const String _emailKey = 'auth_email';
-
+  static const String _userNameKey = 'auth_user_name';
 
   Future<Map<String, dynamic>?> login(String email, String password) async {
     final url = Uri.parse('$_authBaseUrl/employee/login');
@@ -58,6 +58,16 @@ class AuthService {
           await prefs.setString(_companyIdKey, companyId);
           await prefs.setString(_emailKey, email); // Store email if needed later
 
+          try {
+            await fetchAndCacheUserName(employeeId); // Pass the employeeId just retrieved
+          } catch (e) {
+            if (kDebugMode) {
+              print("AuthService: Failed to fetch/cache user name immediately after login: $e");
+              // Non-critical error for login flow, name can be fetched later.
+            }
+          }
+
+
           if (kDebugMode) {
             print('Token stored: $token');
             print('Employee ID: $employeeId, Role: $role, Company ID: $companyId');
@@ -84,6 +94,67 @@ class AuthService {
     }
   }
 
+  Future<String?> fetchAndCacheUserName([String? existingEmployeeId]) async {
+    final token = await getToken();
+    if (token == null) {
+      if (kDebugMode) print("AuthService: No token, cannot fetch user name.");
+      return null; // Or throw Exception('Not authenticated.');
+    }
+
+    final employeeId = existingEmployeeId ?? await getEmployeeId();
+    if (employeeId == null) {
+      if (kDebugMode) print("AuthService: No employeeId, cannot fetch user name.");
+      return null; // Or throw Exception('Employee ID not found.');
+    }
+
+    final url = Uri.parse('$_authBaseUrl/employee/$employeeId');
+    if (kDebugMode) {
+      print('AuthService: Fetching user details from: $url');
+    }
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (kDebugMode) {
+        print('AuthService: Get User Details Response Status: ${response.statusCode}');
+        print('AuthService: Get User Details Response Body: ${response.body}');
+      }
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        // Assuming the response structure is {"message": "...", "data": {"id": ..., "name": ..., ...}}
+        if (responseData['data'] != null && responseData['data']['name'] != null) {
+          final String userName = responseData['data']['name'];
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_userNameKey, userName);
+          if (kDebugMode) {
+            print('AuthService: User name fetched and cached: "$userName"');
+          }
+          return userName;
+        } else {
+          if (kDebugMode) print('AuthService: "name" field not found in user details response data.');
+          return null;
+        }
+      } else {
+        // final errorData = jsonDecode(response.body);
+        // throw Exception(errorData['message'] ?? 'Failed to fetch user details: ${response.statusCode}');
+        if (kDebugMode) print('AuthService: Failed to fetch user details, status: ${response.statusCode}');
+        return null; // Don't throw an exception that might break UI, allow fallback
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error fetching user details: $e');
+      }
+      return null; // Gracefully return null on error
+    }
+  }
+
   Future<void> logout() async {
     await _secureStorage.delete(key: _tokenKey);
     final prefs = await SharedPreferences.getInstance();
@@ -91,8 +162,9 @@ class AuthService {
     await prefs.remove(_roleKey);
     await prefs.remove(_companyIdKey);
     await prefs.remove(_emailKey);
+    await prefs.remove(_userNameKey); // Clear stored name on logout
     if (kDebugMode) {
-      print('User logged out, token and user data cleared.');
+      print('User logged out, token and all user data cleared.');
     }
   }
 
@@ -123,6 +195,18 @@ class AuthService {
   Future<String?> getEmail() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_emailKey);
+  }
+
+  Future<String?> getUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? userName = prefs.getString(_userNameKey);
+    if (userName != null && userName.isNotEmpty) {
+      if (kDebugMode) print('AuthService: Got user name from cache: "$userName"');
+      return userName;
+    }
+    // If not in cache, try to fetch it (this will also cache it)
+    if (kDebugMode) print('AuthService: User name not in cache, attempting to fetch...');
+    return await fetchAndCacheUserName();
   }
 
   Future<List<AppUser>> getAllUsers() async {
@@ -281,7 +365,8 @@ class AuthService {
     required String employeeId,
     required String oldPassword,
     required String newPassword,
-  }) async {
+  }) async
+  {
     final token = await getToken();
     if (token == null) {
       throw Exception('Not authenticated. Cannot change password.');
