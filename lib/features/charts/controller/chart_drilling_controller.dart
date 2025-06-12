@@ -95,12 +95,26 @@ class DrillingController extends GetxController {
     final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
     final ts = wellActive.timeStart;
     final te = wellActive.timeEnd;
+    final ds = cfg.start;
+    final de = cfg.end;
+
+    print("DEBUG: Fetching depth data for well: ${wellActive.wellName}, Token: ${wellActive.isApiToken}");
+    print("DEBUG: Time Range: Start = $ts, End = $te");
+    print("DEBUG: Depth Range: Start = $ds, End = $de");
+    print("DEBUG: First Call: $_depthFirstCall");
+
+
     final data = await api.fetchDepthBasedData(
       token: wellActive.isApiToken,
       timeStart: ts, timeEnd: te,
       depthStart: cfg.start, depthEnd: cfg.end,
       first: _depthFirstCall,
     );
+
+
+
+
+
     if (data.isNotEmpty) {
       _depthFirstCall = false;
       depthData.assignAll(data);

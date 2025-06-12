@@ -106,6 +106,12 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         await controller.initializeHistoricalTimeDataForHome(wellActive: widget.wellActive);
       }
 
+      // This call should not depend on _depthConfig.disabled here.
+      // The _onDepthTabSelected handles showing the dialog based on _depthConfig.disabled
+      // and _depthDialogFirstTime in the build method.
+      // So, if depth data is needed regardless of dialog state, it should be initialized.
+      // For now, retaining original logic as it was, assuming _depthConfig.disabled implies
+      // that the dialog is not to be shown and data is always initialized if disabled.
       if (_depthConfigLoaded && _depthConfig.disabled) {
         await controller.initializeDepthData(wellActive: widget.wellActive);
       }
@@ -129,7 +135,8 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       _multiNotifier2.value = (_multiCtrl2.page ?? 0).round();
     });
 
-    _startRealtimeHomeUpdates();
+    // The _startRealtimeHomeUpdates is called twice, remove one.
+    // _startRealtimeHomeUpdates();
   }
 
   @override
@@ -238,7 +245,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         _lastInitializedTab = _selectedIndex;
       });
     }
-}
+  }
 
   void _handleTabChange(int index) {
 
@@ -251,54 +258,58 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _initializeDataForCurrentTab();
   }
 
-  // Todo()
+  // Corrected _onDepthTabSelected function
   Future<void> _onDepthTabSelected() async {
+    if (!_depthConfigLoaded) return;
 
-    if(!_depthConfigLoaded) return;
-
-    if (!_depthConfig.disabled || _depthDialogFirstTime) {
-      if(controller.depthData.isEmpty) {
-        setState(() => _isSearching = true);
-        await controller.initializeDepthData(wellActive: widget.wellActive);
-        setState(() => _isSearching = false);
-      } else {
-        controller.updateDisplayedDepthChartData();
-      }
-      _depthDialogFirstTime = false;
-      return;
-    }
-
+    // Condition to show the dialog
     if (!_depthConfig.disabled && _depthDialogFirstTime) {
       final result = await showDialog<DepthConfigResult>(
         context: context,
         builder: (_) => DepthConfigDialog(
           initialStart: _depthConfig.start,
-          initialEnd:   _depthConfig.end,
+          initialEnd: _depthConfig.end,
         ),
       );
 
       if (result == null) {
+        // User dismissed dialog without saving or explicit action.
+        _depthDialogFirstTime = false; // <<< Moved this line here
         if (controller.depthData.isEmpty) {
+          setState(() => _isSearching = true);
+          await controller.initializeDepthData(wellActive: widget.wellActive);
+          setState(() => _isSearching = false);
+        } else {
           controller.updateDisplayedDepthChartData();
         }
-        return;
       } else {
+        // User interacted with dialog and provided a result.
         await ChartDepthService.saveRange(
-            widget.wellActive.isApiToken,
-            result!.start,
-            result!.end
-        );
-        if(result.doNotShowAgain) {
+            widget.wellActive.isApiToken, result.start, result.end);
+        if (result.doNotShowAgain) {
           await ChartDepthService.disableDialog(widget.wellActive.isApiToken);
-          _depthConfig = DepthConfig(start: result.start, end: result.end, disabled: true);
+          _depthConfig =
+              DepthConfig(start: result.start, end: result.end, disabled: true);
         } else {
-          _depthConfig = DepthConfig(start: result.start, end: result.end, disabled: false);
+          _depthConfig =
+              DepthConfig(start: result.start, end: result.end, disabled: false);
         }
 
+        _depthDialogFirstTime = false; // <<< Moved this line here
         controller.depthData.clear();
         setState(() => _isSearching = true);
         await controller.initializeDepthData(wellActive: widget.wellActive);
         setState(() => _isSearching = false);
+      }
+    } else {
+      // This path is taken if the dialog was previously disabled, or it's not the first time
+      // and not disabled. Just initialize/update data normally.
+      if (controller.depthData.isEmpty) {
+        setState(() => _isSearching = true);
+        await controller.initializeDepthData(wellActive: widget.wellActive);
+        setState(() => _isSearching = false);
+      } else {
+        controller.updateDisplayedDepthChartData();
       }
     }
   }
@@ -327,9 +338,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
     final mode = (index == 1) ? 'time' : 'depth';
     final overlay =
-        Overlay.of(context)!.context.findRenderObject() as RenderBox;
+    Overlay.of(context)!.context.findRenderObject() as RenderBox;
     final local =
-        overlay.globalToLocal(_tapPosition!); // now guaranteed non-null
+    overlay.globalToLocal(_tapPosition!); // now guaranteed non-null
     final bottomInset = MediaQuery.of(context).padding.bottom;
     const barH = kBottomNavigationBarHeight;
     // anchor menu just above nav bar:
@@ -405,21 +416,21 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   }
 
   BottomNavigationBar _buildBottomNav() => BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _handleTabChange,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        items: [
-          _buildNavItem(Icons.home, 0),
-          _buildNavItem(Icons.show_chart, 1),
-          _buildNavItem(Icons.show_chart_sharp, 2),
-          _buildNavItem(Icons.chat_sharp, 3),
-          _buildNavItem(Icons.notifications, 4),
-          _buildNavItem(Icons.person_outline, 5)
-        ],
-      );
+    currentIndex: _selectedIndex,
+    onTap: _handleTabChange,
+    type: BottomNavigationBarType.fixed,
+    backgroundColor: Colors.white,
+    showSelectedLabels: false,
+    showUnselectedLabels: false,
+    items: [
+      _buildNavItem(Icons.home, 0),
+      _buildNavItem(Icons.show_chart, 1),
+      _buildNavItem(Icons.show_chart_sharp, 2),
+      _buildNavItem(Icons.chat_sharp, 3),
+      _buildNavItem(Icons.notifications, 4),
+      _buildNavItem(Icons.person_outline, 5)
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -433,11 +444,11 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     // your five pages
     final pages = [
       HomeScreenWidget(
-          controller: controller,
-          parameterBox: parameterBox,
-          depthParameterBox: depthParameterBox,
-          isWellLive: _isWellConsideredLive,
-          currentWellApiToken: widget.wellActive.isApiToken,
+        controller: controller,
+        parameterBox: parameterBox,
+        depthParameterBox: depthParameterBox,
+        isWellLive: _isWellConsideredLive,
+        currentWellApiToken: widget.wellActive.isApiToken,
       ),
       ChartTimePage(
           multiMode: _multiMode,
