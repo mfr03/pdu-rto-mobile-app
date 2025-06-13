@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
+import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:get/get.dart';
 
@@ -33,6 +35,87 @@ class _SingleDepthChartState extends State<SingleDepthChart>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+  late TrackballBehavior _trackballBehavior;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackballBehavior = TrackballBehavior(
+      enable: true,
+      activationMode: ActivationMode.longPress,
+      lineType: TrackballLineType.vertical,
+      builder: (BuildContext context, TrackballDetails trackballDetails) {
+        final int? pointIndex = trackballDetails.pointIndex;
+
+        if (pointIndex == null ||
+            pointIndex < 0 ||
+            pointIndex >= widget.controller.displayedDataDepth.length) {
+          return const SizedBox.shrink();
+        }
+
+        // Get the specific data point using the reliable index.
+        final DepthDrillingData drillData =
+        widget.controller.displayedDataDepth[pointIndex];
+        final String formattedDateTime =
+        CFormatter.formatDateTime(drillData.dateTime);
+
+        List<Widget> children = [];
+
+        // Add the DateTime as a header.
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4.0),
+            child: Text(
+              formattedDateTime,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+
+        // Manually build the info for each series using the widget's own properties.
+        // This avoids any problematic internal library classes.
+        for (final entry in widget.variableMap.entries) {
+          final String seriesName = entry.key;
+          final num yValue = entry.value(drillData);
+          final Color color = widget.colorMap[seriesName] ?? Colors.grey;
+
+          children.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Circle(color, 8),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$seriesName: ${yValue.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -124,15 +207,7 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       ),
       primaryYAxis: primaryAxis,
       axes: additionalAxes,
-      trackballBehavior: TrackballBehavior(
-        enable: true,
-        activationMode: ActivationMode.singleTap,    // ← gesture that follows the drag
-        shouldAlwaysShow: true,                      // ← keep it on while moving
-        hideDelay: 2000,                             // ← fade‑out delay (optional)
-        lineType: TrackballLineType.vertical,        // only vertical or none exist
-        tooltipDisplayMode: TrackballDisplayMode.groupAllPoints,
-        tooltipSettings: const InteractiveTooltip(enable: true),
-      ),
+      trackballBehavior: _trackballBehavior,
       zoomPanBehavior: ZoomPanBehavior(),
       legend: Legend(isVisible: false),
 
@@ -140,9 +215,6 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       // 3. One LineSeries per parameter → bound to its axis by name
       //-------------------------------------------------------------
       series: widget.variableMap.entries.map((e) {
-
-
-
 
 
         return LineSeries<DepthDrillingData, num>(
@@ -157,6 +229,7 @@ class _SingleDepthChartState extends State<SingleDepthChart>
           animationDelay: 0,
           onRendererCreated: (ctl) =>
               widget.controller.storeSeriesController(widget.trackType, ctl),
+
         );
       }).toList(),
     );

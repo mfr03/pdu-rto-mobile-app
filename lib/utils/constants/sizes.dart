@@ -6,5 +6,6 @@ class CSizes {
   static const double parameterDashboardNumberTextSize = 11.2;
   static const double parameterDashboardNumberCardSize = 50;
   static const double parameterDashboardCircleSize = 4 * parameterDashboardScale;
-
+  static const double spaceBtwItems = 4;
+  static const double spaceBtwInputFields = 8;
 }

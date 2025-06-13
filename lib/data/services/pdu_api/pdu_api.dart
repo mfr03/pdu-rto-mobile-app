@@ -3,8 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_unit.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_variable.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/remark_item.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'model/drilling_data.dart';
 import 'model/well_active.dart';
 
@@ -14,6 +16,7 @@ class PduApi {
   static const String _wellActiveEndpoint = "/dome_api/wells-active";
   static const String _realtimeDataEndpoint = "/dome_api/realtime-data";
   static const String _depthDataEndPoint = "/dome_api/realtime-data-depthbased";
+  static const String _realtimeRemarkEndpoint = "/dome_api/realtime-data-remark";
 
   /// Fetch the list of active wells
   Future<List<WellActive>> fetchActiveWells() async {
@@ -133,30 +136,51 @@ class PduApi {
     required String token,
     required DateTime referenceTime,
     required bool forward,
-    int count = 15,
+    int count = 15, // Total minutes to fetch
   }) async
   {
-    DateTime start, end;
+    final List<DrillingData> combinedResults = [];
+    int remainingMinutes = count;
+    const int maxChunkMinutes = 15;
+
     if (forward) {
-      start = referenceTime;
-      end = referenceTime.add(Duration(minutes: count));
-    } else {
-      start = referenceTime.subtract(Duration(minutes: count));
-      end = referenceTime;
+      DateTime currentStartTime = referenceTime;
+      while (remainingMinutes > 0) {
+        final int chunkMinutes = math.min(remainingMinutes, maxChunkMinutes);
+        final DateTime currentEndTime = currentStartTime.add(Duration(minutes: chunkMinutes));
+
+        final chunkResults = await fetchRealtimeDataOnce(
+          token: token,
+          timeStart: CFormatter.formatDateTime(currentStartTime),
+          timeEnd: CFormatter.formatDateTime(currentEndTime),
+        );
+        combinedResults.addAll(chunkResults);
+
+        currentStartTime = currentEndTime;
+        remainingMinutes -= chunkMinutes;
+      }
+    } else { // backward
+      DateTime currentEndTime = referenceTime;
+      while (remainingMinutes > 0) {
+        final int chunkMinutes = math.min(remainingMinutes, maxChunkMinutes);
+        final DateTime currentStartTime = currentEndTime.subtract(Duration(minutes: chunkMinutes));
+
+        final chunkResults = await fetchRealtimeDataOnce(
+          token: token,
+          timeStart: CFormatter.formatDateTime(currentStartTime),
+          timeEnd: CFormatter.formatDateTime(currentEndTime),
+        );
+        // Prepend results to maintain chronological order
+        combinedResults.insertAll(0, chunkResults);
+
+        currentEndTime = currentStartTime;
+        remainingMinutes -= chunkMinutes;
+      }
     }
-
-    final timeStartStr = CFormatter.formatDateTime(start);
-    final timeEndStr   = CFormatter.formatDateTime(end);
-
-    final dataList = await fetchRealtimeDataOnce(
-      token: token,
-      timeStart: timeStartStr,
-      timeEnd: timeEndStr,
-    );
-    return dataList;
+    return combinedResults;
   }
 
-  Future<List<DepthDrillingData>> fetchDepthBasedData({
+  Future<List<DepthDrillingData>> _fetchDepthDataOnce({
     required String token,
     required String timeStart,
     required String timeEnd,
@@ -166,29 +190,163 @@ class PduApi {
   }) async
   {
     final uri = Uri.https(_baseUrl, _depthDataEndPoint);
-    final resp = http.Request("GET", uri)
+    final request = http.Request("GET", uri)
       ..headers["Content-Type"] = "application/json"
       ..body = jsonEncode({
-        "token":      token,
-        "timeStart":  timeStart,
-        "timeEnd":    timeEnd,
+        "token": token,
+        "timeStart": timeStart,
+        "timeEnd": timeEnd,
         "depthStart": depthStart,
-        "depthEnd":   depthEnd,
-        "first":      first,
+        "depthEnd": depthEnd,
+        "first": first,
       });
 
-    final streamed = await resp.send();
-    final r = await http.Response.fromStream(streamed);
-    if (r.statusCode != 200) {
-      debugPrint("Depth API error ${r.statusCode}: ${r.body}");
+    debugPrint("PDU API [Depth Request Body]: ${jsonEncode(request.body)}");
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode != 200) {
+      debugPrint("Depth API error ${response.statusCode}: ${response.body}");
       return [];
     }
-    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
     final List<dynamic> results = body["result"] ?? [];
     return results
         .cast<Map<String, dynamic>>()
         .map((j) => DepthDrillingData.fromJson(j))
         .toList();
+  }
+
+  // REVISED METHOD with chunking logic
+  Future<List<DepthDrillingData>> fetchDepthBasedData({
+    required String token,
+    required String timeStart,
+    required String timeEnd,
+    required double depthStart,
+    required double depthEnd,
+    required bool first,
+  }) async
+  {
+
+    if (first) {
+      return _fetchDepthDataOnce(
+        token: token,
+        timeStart: timeStart,
+        timeEnd: timeEnd,
+        depthStart: depthStart,
+        depthEnd: depthEnd,
+        first: true,
+      );
+    }
+
+    // For subsequent time-based calls, implement chunking.
+    final List<DepthDrillingData> combinedResults = [];
+    final DateTime startTime = DateTime.parse(timeStart);
+    final DateTime endTime = DateTime.parse(timeEnd);
+    final int totalMinutes = endTime.difference(startTime).inMinutes;
+
+    if (totalMinutes <= 0) return [];
+
+    int remainingMinutes = totalMinutes;
+    const int maxChunkMinutes = 15;
+    DateTime currentStartTime = startTime;
+
+    while (remainingMinutes > 0) {
+      final int chunkMinutes = math.min(remainingMinutes, maxChunkMinutes);
+      final DateTime currentEndTime = currentStartTime.add(Duration(minutes: chunkMinutes));
+
+      final chunkResults = await _fetchDepthDataOnce(
+        token: token,
+        timeStart: CFormatter.formatDateTime(currentStartTime),
+        timeEnd: CFormatter.formatDateTime(currentEndTime),
+        depthStart: depthStart,
+        depthEnd: depthEnd,
+        first: false,
+      );
+      combinedResults.addAll(chunkResults);
+
+      currentStartTime = currentEndTime;
+      remainingMinutes -= chunkMinutes;
+    }
+
+    return combinedResults;
+  }
+
+  Future<List<DrillingData>> fetchAbsoluteTimeRangeData({
+    required String token,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async
+  {
+    final List<DrillingData> combinedResults = [];
+    final int totalMinutes = endTime.difference(startTime).inMinutes;
+
+    if (totalMinutes <= 0) return [];
+
+    int remainingMinutes = totalMinutes;
+    const int maxChunkMinutes = 15;
+    DateTime currentStartTime = startTime;
+
+    while (remainingMinutes > 0) {
+      final int chunkMinutes = math.min(remainingMinutes, maxChunkMinutes);
+      final DateTime currentEndTime = currentStartTime.add(Duration(minutes: chunkMinutes));
+
+      final chunkResults = await fetchRealtimeDataOnce(
+        token: token,
+        timeStart: CFormatter.formatDateTime(currentStartTime),
+        timeEnd: CFormatter.formatDateTime(currentEndTime),
+      );
+      combinedResults.addAll(chunkResults);
+
+      currentStartTime = currentEndTime;
+      remainingMinutes -= chunkMinutes;
+    }
+
+    return combinedResults;
+  }
+
+  Future<List<RemarkItem>> fetchRemarksData({
+    required String token,
+    required String timeStart,
+    required String timeEnd,
+  }) async {
+    final uri = Uri.https(_baseUrl, _realtimeRemarkEndpoint);
+
+    final Map<String, dynamic> requestBody = {
+      "token": token,
+      "timeStart": timeStart,
+      "timeEnd": timeEnd,
+    };
+
+    final request = http.Request("GET", uri)
+      ..headers["Content-Type"] = "application/json"
+      ..body = jsonEncode(requestBody);
+
+    // DEBUG STATEMENT ADDED HERE
+    debugPrint("PDU API [Remarks] Request URL: $uri");
+    debugPrint("PDU API [Remarks] Request Body: ${request.body}");
+
+    try {
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data["result"] != null) {
+          final List<dynamic> results = data["result"];
+          return results.map((json) => RemarkItem.fromJson(json)).toList();
+        } else {
+          debugPrint("PDU API [Remarks]: Key 'result' not found in JSON response.");
+          return [];
+        }
+      } else {
+        debugPrint("PDU API [Remarks]: Failed to load remarks. Status code: ${response.statusCode}, Body: ${response.body}");
+        return [];
+      }
+    } catch (e) {
+      debugPrint("PDU API [Remarks]: Exception fetching remarks: $e");
+      return [];
+    }
   }
 
   Future<List<Variable>> fetchVariables() async {

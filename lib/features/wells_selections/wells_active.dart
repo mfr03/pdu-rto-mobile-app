@@ -7,7 +7,7 @@ import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart'
 import 'package:pdu_mobile_rto_app/features/charts/screen/chart_drilling_screen.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
-import 'package:pdu_mobile_rto_app/utils/well_utils.dart';
+import 'package:pdu_mobile_rto_app/utils/well_utils.dart'; // Ensure this import is present
 
 class WellsActiveScreen extends StatefulWidget {
   const WellsActiveScreen({super.key});
@@ -77,6 +77,7 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
   }
 
   Widget _buildWellCard(BuildContext context, WellActive well) {
+    // Determine if the well is completed using the updated utility function
     final bool isCompleted = isWellCompleted(wellActive: well);
     final NavigatorState navigator = Navigator.of(context);
 
@@ -136,8 +137,9 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
+                    // Updated to display "Status: " and use well.wellStatus
                     Text(
-                      "Type: ${well.wellType}",
+                      "Status: ${well.wellStatus}",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -180,15 +182,7 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      // appBar: AppBar( // REMOVED APPBAR
-      //   title: const Text(
-      //     'Well Selections',
-      //     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      //   ),
-      //   backgroundColor: CColors.primaryColor,
-      //   elevation: 2.0,
-      // ),
-      body: SafeArea( // Added SafeArea here since AppBar is gone
+      body: SafeArea(
         child: FutureBuilder<List<WellActive>>(
           future: _futureWells,
           builder: (context, snapshot) {
@@ -200,17 +194,9 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
             }
             if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final wells = snapshot.data!;
-              return Column( // Added Column to potentially add a title if needed
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Optional: Add a custom header text here if desired
-                  // Padding(
-                  //   padding: const EdgeInsets.all(16.0),
-                  //   child: Text(
-                  //     "Select a Well",
-                  //     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                  //   ),
-                  // ),
                   Expanded(
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -223,7 +209,7 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> {
                 ],
               );
             }
-            return Center( // Empty state
+            return Center(
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(

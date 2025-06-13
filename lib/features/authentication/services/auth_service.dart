@@ -9,10 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   // TODO: Adjust the baseUrl based on your testing environment (emulator/physical device)
   // For Android Emulator accessing host machine's localhost:
-  static final String _authBaseUrl =
-  kDebugMode && defaultTargetPlatform == TargetPlatform.android
-      ? "http://10.0.2.2:3001/api"
-      : "http://localhost:3001/api";
+  static final String _authBaseUrl = "http://103.150.93.56:3001/api";
 
   final _secureStorage = const FlutterSecureStorage();
 

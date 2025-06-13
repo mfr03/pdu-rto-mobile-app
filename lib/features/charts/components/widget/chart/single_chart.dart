@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:intl/intl.dart';
+import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
+import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:get/get.dart';
 
@@ -34,6 +36,85 @@ class _SingleChartState extends State<SingleChart>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+  late TrackballBehavior _trackballBehavior;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackballBehavior = TrackballBehavior(
+      enable: true,
+      activationMode: ActivationMode.singleTap,
+      lineType: TrackballLineType.vertical,
+      builder: (BuildContext context, TrackballDetails trackballDetails) {
+        final int? pointIndex = trackballDetails.pointIndex;
+
+        if (pointIndex == null ||
+            pointIndex < 0 ||
+            pointIndex >= widget.controller.displayedData.length) {
+          return const SizedBox.shrink();
+        }
+
+        // Use the correct data model and list for the time chart
+        final DrillingData drillData =
+        widget.controller.displayedData[pointIndex];
+        final String formattedDateTime =
+        CFormatter.formatDateTime(drillData.dateTime);
+
+        List<Widget> children = [];
+
+        // Add the DateTime as a header.
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4.0),
+            child: Text(
+              formattedDateTime,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+
+        // Manually build the info for each series
+        for (final entry in widget.variableMap.entries) {
+          final String seriesName = entry.key;
+          final num yValue = entry.value(drillData);
+          final Color color = widget.colorMap[seriesName] ?? Colors.grey;
+
+          children.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Circle(color, 8),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$seriesName: ${yValue.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,17 +197,6 @@ class _SingleChartState extends State<SingleChart>
       primaryNumericAxis = NumericAxis();
     }
 
-    // 2) Assign each series to its corresponding axis via yAxisName
-    final trackballBehavior = TrackballBehavior(
-      enable: true,
-      tooltipSettings: const InteractiveTooltip(
-        enable: true,
-        textStyle: const TextStyle(fontSize: 9),
-      ),
-      tooltipDisplayMode: TrackballDisplayMode.groupAllPoints,
-      activationMode: ActivationMode.singleTap,
-    );
-
     return SfCartesianChart(
       key: ValueKey(
         'chart-${widget.mapString}-${widget.variableMap.keys.join(",")}',
@@ -154,7 +224,7 @@ class _SingleChartState extends State<SingleChart>
       ),
       primaryYAxis: primaryNumericAxis,
       axes: additionalAxes,
-      trackballBehavior: trackballBehavior,
+      trackballBehavior: _trackballBehavior,
       zoomPanBehavior: ZoomPanBehavior(),
       legend: Legend(isVisible: false),
       series: widget.variableMap.entries

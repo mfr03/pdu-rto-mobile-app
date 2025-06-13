@@ -11,6 +11,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/notification/screen/notification_settings_screen.dart';
 import 'package:pdu_mobile_rto_app/features/profiles/screen/user_settings_screen.dart';
+import 'package:pdu_mobile_rto_app/features/remarks/screen/remarks_screen.dart';
 import '../../../data/services/pdu_api/model/well_active.dart';
 import '../../../utils/constants/colors.dart';
 import '../components/widget/dialog/add_parameter_dialog.dart';
@@ -30,7 +31,7 @@ class DrillingChartScreen extends StatefulWidget {
 
 class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // Core data & Hive box
-  final DrillingController controller = GetIt.instance<DrillingController>();
+  final DrillingController controller = Get.put(DrillingController(), permanent: true);
   Box<ParameterItem>? parameterBox;
   Box<ParameterItem>? depthParameterBox;
   StreamSubscription<BoxEvent>? _paramSub;
@@ -106,12 +107,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         await controller.initializeHistoricalTimeDataForHome(wellActive: widget.wellActive);
       }
 
-      // This call should not depend on _depthConfig.disabled here.
-      // The _onDepthTabSelected handles showing the dialog based on _depthConfig.disabled
-      // and _depthDialogFirstTime in the build method.
-      // So, if depth data is needed regardless of dialog state, it should be initialized.
-      // For now, retaining original logic as it was, assuming _depthConfig.disabled implies
-      // that the dialog is not to be shown and data is always initialized if disabled.
       if (_depthConfigLoaded && _depthConfig.disabled) {
         await controller.initializeDepthData(wellActive: widget.wellActive);
       }
@@ -135,8 +130,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       _multiNotifier2.value = (_multiCtrl2.page ?? 0).round();
     });
 
-    // The _startRealtimeHomeUpdates is called twice, remove one.
-    // _startRealtimeHomeUpdates();
   }
 
   @override
@@ -168,27 +161,18 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   void _startRealtimeHomeUpdates() {
     _realtimeHomeTimer?.cancel();
     _realtimeHomeTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+
       if (!mounted || !_isWellConsideredLive) {
         timer.cancel();
         return;
       }
 
-      bool isTimeChartActiveAndAtLiveEdge = false;
-      if(_selectedIndex == 1) {
-        if(controller.historicalTimeData.isNotEmpty) {
-          int currentlyVisibleEndIndex = controller.timeChartCurrentIndex.value + controller.displayedDataPoints;
-          if(currentlyVisibleEndIndex >= controller.historicalTimeData.length) {
-            isTimeChartActiveAndAtLiveEdge = true;
-          }
-        } else {
-          isTimeChartActiveAndAtLiveEdge = true;
-        }
-      }
 
-      controller.fetchAndUpdateLatestLiveTimeData(
+      if(mounted) {
+        controller.fetchAndUpdateLatestLiveTimeData(
           wellActive: widget.wellActive,
-          shouldAutoScrollTimeChart: isTimeChartActiveAndAtLiveEdge
-      );
+        );
+      }
     });
   }
 
@@ -256,21 +240,32 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       _multiMode = null;
     });
     _initializeDataForCurrentTab();
+
+    if (index == 2) {
+      _onDepthTabSelected();
+    }
+
   }
 
-  // Corrected _onDepthTabSelected function
   Future<void> _onDepthTabSelected() async {
     if (!_depthConfigLoaded) return;
 
-    // Condition to show the dialog
+
     if (!_depthConfig.disabled && _depthDialogFirstTime) {
+
+      setState(() {
+        _depthDialogFirstTime = false;
+      });
+
       final result = await showDialog<DepthConfigResult>(
+        barrierDismissible: false,
         context: context,
         builder: (_) => DepthConfigDialog(
           initialStart: _depthConfig.start,
           initialEnd: _depthConfig.end,
         ),
       );
+
 
       if (result == null) {
         // User dismissed dialog without saving or explicit action.
@@ -478,17 +473,17 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
           isDashboardVisible: _isDashboardVisible,
           wellActive: widget.wellActive,
           onFieldChanged: _onFieldChanged),
-      const Center(child: Text('Placeholder 3')),
+      RemarksScreen(wellActive: widget.wellActive),
       NotificationSettingsScreen(wellActive: widget.wellActive),
       const UserSettingsScreen(),
     ];
-
 
     if(_selectedIndex == 2 && _depthConfigLoaded && !_depthConfig.disabled && _depthDialogFirstTime) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _onDepthTabSelected();
       });
     }
+
 
     return Scaffold(
       bottomNavigationBar: _buildBottomNav(),
