@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 
-
-
-
 class HomeBannerCard extends StatelessWidget {
-
+  final WellActive well;
   final double bannerH;
   final double bitDepth;
 
-  const HomeBannerCard({super.key, required this.bannerH, required this.bitDepth});
+  const HomeBannerCard({
+    super.key,
+    required this.well,
+    required this.bannerH,
+    required this.bitDepth,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +31,28 @@ class HomeBannerCard extends StatelessWidget {
               ),
             ),
           ),
+          // Added well name display at the top center
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: Text(
+                well.wellName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      blurRadius: 4.0,
+                      color: Colors.black54,
+                      offset: Offset(2.0, 2.0),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -40,7 +65,18 @@ class HomeBannerCard extends StatelessWidget {
                   children: [
                     const Text(
                       'Bit Depth',
-                      style: TextStyle(color: Colors.white, fontSize: 24),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 4.0,
+                            color: Colors.black54,
+                            offset: Offset(2.0, 2.0),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -60,5 +96,4 @@ class HomeBannerCard extends StatelessWidget {
       ),
     );
   }
-
 }

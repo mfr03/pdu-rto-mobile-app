@@ -237,13 +237,6 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                               .moveBackwardDepthChart(
                             wellActive: widget.wellActive,
                           );
-                          if (!success && widget.parentContext.mounted) {
-                            ScaffoldMessenger.of(widget.parentContext)
-                                .showSnackBar(
-                              const SnackBar(
-                                  content: Text("Already at the start.")),
-                            );
-                          }
                         }
                         widget.onFieldChanged("_isSearching", false);
                       },
@@ -306,13 +299,13 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                               .fastForwardDepthChart(
                             wellActive: widget.wellActive,
                           );
-                          if (!success && widget.parentContext.mounted) {
-                            ScaffoldMessenger.of(widget.parentContext)
-                                .showSnackBar(
-                              const SnackBar(
-                                  content: Text("No newer data available.")),
-                            );
-                          }
+                          // if (!success && widget.parentContext.mounted) {
+                          //   ScaffoldMessenger.of(widget.parentContext)
+                          //       .showSnackBar(
+                          //     const SnackBar(
+                          //         content: Text("No newer data available.")),
+                          //   );
+                          // }
                         }
                         widget.onFieldChanged("_isSearching", false);
                       },

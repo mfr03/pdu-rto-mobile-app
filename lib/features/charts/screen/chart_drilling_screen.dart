@@ -9,6 +9,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/dept
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_depth_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_time_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/notification/model/snackbar_notification.dart';
 import 'package:pdu_mobile_rto_app/features/notification/screen/notification_settings_screen.dart';
 import 'package:pdu_mobile_rto_app/features/profiles/screen/user_settings_screen.dart';
 import 'package:pdu_mobile_rto_app/features/remarks/screen/remarks_screen.dart';
@@ -61,9 +62,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // For pop‑up menu positioning
   Offset? _tapPosition;
 
-  Timer? _realtimeHomeTimer;
-  bool _isWellConsideredLive = true;
-
   late DepthConfig _depthConfig;
   bool _depthConfigLoaded = false;
   bool _depthDialogFirstTime = true;
@@ -71,23 +69,14 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   @override
   void initState() {
     super.initState();
-    final wellEndDate = DateTime.parse(widget.wellActive.endDate);
-    final now = DateTime.now();
-
-    if(wellEndDate != null && wellEndDate.isBefore(now)) {
-      _isWellConsideredLive = false;
-    } else {
-      _isWellConsideredLive = true;
-    }
-
 
     _loadDepthConfig();
+
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
 
       setState(() => _isSearching = true);
 
-      // TODO(a null safety net if boxes arent opening properly)
       parameterBox = await HiveService.openParameterBox();
       _paramSub = parameterBox!.watch().listen((_) => setState(() {}));
 
@@ -99,13 +88,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
       setState(() => _isDataLoaded = true);
 
-      if(_isWellConsideredLive) {
-        await controller.initializeLiveTimeData(wellActive: widget.wellActive);
-
-        _startRealtimeHomeUpdates();
-      } else {
-        await controller.initializeHistoricalTimeDataForHome(wellActive: widget.wellActive);
-      }
+      await controller.initializeLiveTimeData(wellActive: widget.wellActive);
 
       if (_depthConfigLoaded && _depthConfig.disabled) {
         await controller.initializeDepthData(wellActive: widget.wellActive);
@@ -145,7 +128,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _paramSub?.cancel();
     _depthParameterSub?.cancel();
     controller.deleteData();
-    _realtimeHomeTimer?.cancel();
     super.dispose();
   }
 
@@ -155,24 +137,6 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     });
     _depthCtrl.addListener(() {
       _depthNotifier.value = (_depthCtrl.page ?? 0).round();
-    });
-  }
-
-  void _startRealtimeHomeUpdates() {
-    _realtimeHomeTimer?.cancel();
-    _realtimeHomeTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-
-      if (!mounted || !_isWellConsideredLive) {
-        timer.cancel();
-        return;
-      }
-
-
-      if(mounted) {
-        controller.fetchAndUpdateLatestLiveTimeData(
-          wellActive: widget.wellActive,
-        );
-      }
     });
   }
 
@@ -199,27 +163,25 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     }
 
     bool needsInitialLoad = false;
+    // --- MODIFIED: Removed check for depth chart (index 2) ---
     if (_selectedIndex == 1 && controller.historicalTimeData.isEmpty) {
-      needsInitialLoad = true;
-    } else if (_selectedIndex == 2 && controller.depthData.isEmpty) {
       needsInitialLoad = true;
     }
 
     if (!needsInitialLoad && _selectedIndex == _lastInitializedTab) {
       if (_selectedIndex == 1) controller.updateDisplayedTimeChartData();
-      if (_selectedIndex == 2) controller.updateDisplayedDepthChartData();
       _lastInitializedTab = _selectedIndex;
       return;
     }
 
     setState(() => _isSearching = true);
 
-    if (_selectedIndex == 2 || (_multiMode == 'depth' && _selectedIndex != 0)) {
-      debugPrint("Initializing depth data for chart tab.");
-      await controller.initializeDepthData(wellActive: widget.wellActive);
-    } else if (_selectedIndex == 1 || (_multiMode == 'time' && _selectedIndex != 0)) {
+    // --- MODIFIED: Removed the logic block for initializing depth data ---
+    // The responsibility is now fully within _onDepthTabSelected()
+
+    if (_selectedIndex == 1 || (_multiMode == 'time' && _selectedIndex != 0)) {
       print("CHART_SCREEN: Initializing Time Chart Data. Current historicalTimeData length: ${controller.historicalTimeData.length}");
-      await controller.initializeData(wellActive: widget.wellActive); // This is your historical loader
+      await controller.initializeData(wellActive: widget.wellActive);
       print("CHART_SCREEN: After controller.initializeData. New historicalTimeData length: ${controller.historicalTimeData.length}, displayedData length: ${controller.displayedData.length}");
     }
 
@@ -232,19 +194,23 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   }
 
   void _handleTabChange(int index) {
-
     if (_selectedIndex == index) return;
 
     setState(() {
       _selectedIndex = index;
       _multiMode = null;
     });
-    _initializeDataForCurrentTab();
 
+    // --- THIS IS THE MAIN FIX ---
+    // We now have a clear separation of concerns. The depth tab has its own
+    // initialization flow, while other tabs use the general method.
     if (index == 2) {
+      // For the depth tab, the dialog flow handles the data initialization.
       _onDepthTabSelected();
+    } else {
+      // For all other tabs, initialize data normally.
+      _initializeDataForCurrentTab();
     }
-
   }
 
   Future<void> _onDepthTabSelected() async {
@@ -257,6 +223,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         _depthDialogFirstTime = false;
       });
 
+      // Show the dialog FIRST.
       final result = await showDialog<DepthConfigResult>(
         barrierDismissible: false,
         context: context,
@@ -266,44 +233,44 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
         ),
       );
 
-
+      // Now, fetch data AFTER the dialog is closed.
       if (result == null) {
-        // User dismissed dialog without saving or explicit action.
-        _depthDialogFirstTime = false; // <<< Moved this line here
+        // User dismissed the dialog. We can either do nothing or load with
+        // default values. Let's load with defaults if data is empty.
         if (controller.depthData.isEmpty) {
           setState(() => _isSearching = true);
           await controller.initializeDepthData(wellActive: widget.wellActive);
           setState(() => _isSearching = false);
-        } else {
-          controller.updateDisplayedDepthChartData();
         }
       } else {
-        // User interacted with dialog and provided a result.
+        // User provided a result. Save it and fetch with the new config.
         await ChartDepthService.saveRange(
             widget.wellActive.isApiToken, result.start, result.end);
         if (result.doNotShowAgain) {
           await ChartDepthService.disableDialog(widget.wellActive.isApiToken);
-          _depthConfig =
-              DepthConfig(start: result.start, end: result.end, disabled: true);
-        } else {
-          _depthConfig =
-              DepthConfig(start: result.start, end: result.end, disabled: false);
         }
 
-        _depthDialogFirstTime = false; // <<< Moved this line here
+        // Update local config state and clear old data before fetching.
+        _depthConfig = DepthConfig(
+            start: result.start,
+            end: result.end,
+            disabled: result.doNotShowAgain
+        );
+
         controller.depthData.clear();
         setState(() => _isSearching = true);
         await controller.initializeDepthData(wellActive: widget.wellActive);
         setState(() => _isSearching = false);
       }
     } else {
-      // This path is taken if the dialog was previously disabled, or it's not the first time
-      // and not disabled. Just initialize/update data normally.
+      // This path is for when the dialog is disabled or has already been shown.
+      // Fetch data directly.
       if (controller.depthData.isEmpty) {
         setState(() => _isSearching = true);
         await controller.initializeDepthData(wellActive: widget.wellActive);
         setState(() => _isSearching = false);
       } else {
+        // If data already exists, just make sure it's displayed.
         controller.updateDisplayedDepthChartData();
       }
     }
@@ -335,10 +302,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     final overlay =
     Overlay.of(context)!.context.findRenderObject() as RenderBox;
     final local =
-    overlay.globalToLocal(_tapPosition!); // now guaranteed non-null
+    overlay.globalToLocal(_tapPosition!);
     final bottomInset = MediaQuery.of(context).padding.bottom;
     const barH = kBottomNavigationBarHeight;
-    // anchor menu just above nav bar:
     final position = RelativeRect.fromLTRB(
       local.dx,
       local.dy - 125,
@@ -380,14 +346,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
   BottomNavigationBarItem _buildNavItem(IconData icon, int index) {
     return BottomNavigationBarItem(
       icon: GestureDetector(
-        // remove onTapDown entirely
-        onTap: () {
-          setState(() {
-            _selectedIndex = index;
-            _multiMode = null;
-          });
-        },
-        // use onLongPressStart to grab the position reliably
+        onTap: () => _handleTabChange(index),
         onLongPressStart: (details) {
           _tapPosition = details.globalPosition;
           _showChartTypeMenu(index);
@@ -427,129 +386,167 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     ],
   );
 
+
+
   @override
   Widget build(BuildContext context) {
+    return GetX<DrillingController>(
+      builder: (controller) {
+        if (controller.transientNotification.value != null) {
 
-    if (parameterBox == null || depthParameterBox == null) {
-      return Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final notification = controller.transientNotification.value;
+            if (notification != null && mounted) {
 
-    // your five pages
-    final pages = [
-      HomeScreenWidget(
-        controller: controller,
-        parameterBox: parameterBox,
-        depthParameterBox: depthParameterBox,
-        isWellLive: _isWellConsideredLive,
-        currentWellApiToken: widget.wellActive.isApiToken,
-      ),
-      ChartTimePage(
-          multiMode: _multiMode,
-          trackTypes: parameterBox!.values.map((p) => p.trackType).toSet().toList(),
-          controller: controller,
-          multiCtrl1: _multiCtrl1,
-          multiCtrl2: _multiCtrl2,
-          timeCtrl: _timeCtrl,
-          multiNotifier1: _multiNotifier1,
-          multiNotifier2: _multiNotifier2,
-          timeNotifier: _timeNotifier,
-          parameterBox: parameterBox,
-          isDashboardVisible: _isDashboardVisible,
-          wellActive: widget.wellActive,
-          onFieldChanged: _onFieldChanged),
-      ChartDepthPage(
-          multiMode: _multiMode,
-          trackTypes: depthParameterBox!.values.map((p) => p.trackType).toSet().toList(),
-          controller: controller,
-          multiCtrl1: _multiCtrl1,
-          multiCtrl2: _multiCtrl2,
-          depthCtrl: _depthCtrl,
-          multiNotifier1: _multiNotifier1,
-          multiNotifier2: _multiNotifier2,
-          depthNotifier: _depthNotifier,
-          parameterBox: depthParameterBox,
-          isDashboardVisible: _isDashboardVisible,
-          wellActive: widget.wellActive,
-          onFieldChanged: _onFieldChanged),
-      RemarksScreen(wellActive: widget.wellActive),
-      NotificationSettingsScreen(wellActive: widget.wellActive),
-      const UserSettingsScreen(),
-    ];
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-    if(_selectedIndex == 2 && _depthConfigLoaded && !_depthConfig.disabled && _depthDialogFirstTime) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _onDepthTabSelected();
-      });
-    }
+              // Then, create and show the new one.
+              final snackBar = SnackBar(
+                margin: const EdgeInsets.all(12),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                backgroundColor: CColors.tertiaryColor.withOpacity(0.95),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(notification.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text(notification.message, style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              );
 
+              ScaffoldMessenger.of(context).showSnackBar(snackBar);
 
-    return Scaffold(
-      bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(top: 16),
-        child:_selectedIndex == 0
-            ? FloatingActionButton(
-          backgroundColor: CColors.primaryColor,
-          onPressed: () {
-            Box<ParameterItem> targetBox;
-
-            if (_selectedIndex == 0) { // Home - Time
-              targetBox = parameterBox!;
-            } else if (_selectedIndex == 1) { // Time Chart
-              targetBox = parameterBox!;
-            } else if (_selectedIndex == 2) { // Depth Chart
-              targetBox = depthParameterBox!;
-            } else {
-              return; // Or handle error
+              controller.transientNotification.value = null;
             }
-            showDialog(
-              context: context,
-              builder: (_) => AddParameterDialog(
-                wellActive: widget.wellActive,
-                parameterBox: targetBox,
-                controller: controller,
-              ),
-            );
+          });
+
+        }
+
+        // The rest of the build method returns your actual screen UI.
+        if (parameterBox == null || depthParameterBox == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final pages = [
+          HomeScreenWidget(
+            controller: controller,
+            parameterBox: parameterBox,
+            depthParameterBox: depthParameterBox,
+            currentWell: widget.wellActive,
+          ),
+          ChartTimePage(
+              multiMode: _multiMode,
+              trackTypes: parameterBox!.values.map((p) => p.trackType).toSet().toList(),
+              controller: controller,
+              multiCtrl1: _multiCtrl1,
+              multiCtrl2: _multiCtrl2,
+              timeCtrl: _timeCtrl,
+              multiNotifier1: _multiNotifier1,
+              multiNotifier2: _multiNotifier2,
+              timeNotifier: _timeNotifier,
+              parameterBox: parameterBox,
+              isDashboardVisible: _isDashboardVisible,
+              wellActive: widget.wellActive,
+              onFieldChanged: _onFieldChanged),
+          ChartDepthPage(
+              multiMode: _multiMode,
+              trackTypes: depthParameterBox!.values.map((p) => p.trackType).toSet().toList(),
+              controller: controller,
+              multiCtrl1: _multiCtrl1,
+              multiCtrl2: _multiCtrl2,
+              depthCtrl: _depthCtrl,
+              multiNotifier1: _multiNotifier1,
+              multiNotifier2: _multiNotifier2,
+              depthNotifier: _depthNotifier,
+              parameterBox: depthParameterBox,
+              isDashboardVisible: _isDashboardVisible,
+              wellActive: widget.wellActive,
+              onFieldChanged: _onFieldChanged),
+          RemarksScreen(wellActive: widget.wellActive),
+          NotificationSettingsScreen(wellActive: widget.wellActive),
+          const UserSettingsScreen(),
+        ];
+
+        if(_selectedIndex == 2 && _depthConfigLoaded && !_depthConfig.disabled && _depthDialogFirstTime) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _onDepthTabSelected();
+          });
+        }
 
 
-          },
-          child: const Icon(Icons.add),
-        )
-            : (_selectedIndex == 1 || _selectedIndex == 2)
-            ? FloatingActionButton(
-          backgroundColor: CColors.primaryColor,
-          onPressed: () => setState(
-                  () => _isDashboardVisible = !_isDashboardVisible),
-          child: Icon(_isDashboardVisible
-              ? Icons.visibility_off
-              : Icons.visibility),
-        )
-            : null,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
+        return Scaffold(
+          bottomNavigationBar: _buildBottomNav(),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child:_selectedIndex == 0
+                ? FloatingActionButton(
+              backgroundColor: CColors.primaryColor,
+              onPressed: () {
+                Box<ParameterItem> targetBox;
+
+                if (_selectedIndex == 0) {
+                  targetBox = parameterBox!;
+                } else if (_selectedIndex == 1) {
+                  targetBox = parameterBox!;
+                } else if (_selectedIndex == 2) {
+                  targetBox = depthParameterBox!;
+                } else {
+                  return;
+                }
+                showDialog(
+                  context: context,
+                  builder: (_) => AddParameterDialog(
+                    wellActive: widget.wellActive,
+                    parameterBox: targetBox,
+                    controller: controller,
+                  ),
+                );
+
+
+              },
+              child: const Icon(Icons.add),
+            )
+                : (_selectedIndex == 1 || _selectedIndex == 2)
+                ? FloatingActionButton(
+              backgroundColor: CColors.primaryColor,
+              onPressed: () => setState(
+                      () => _isDashboardVisible = !_isDashboardVisible),
+              child: Icon(_isDashboardVisible
+                  ? Icons.visibility_off
+                  : Icons.visibility),
+            )
+                : null,
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          body: SafeArea(
+            child: Stack(
               children: [
-                Expanded(child: pages[_selectedIndex]),
+                Column(
+                  children: [
+                    Expanded(child: pages[_selectedIndex]),
+                  ],
+                ),
+
+                if (!_isDataLoaded || _isSearching)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.white.withOpacity(0.8),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  ),
               ],
             ),
-
-            if (!_isDataLoaded || _isSearching)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.white.withOpacity(0.8),
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
+
 }
