@@ -1,5 +1,6 @@
 // codes/lib/features/wells_selections/wells_active.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
@@ -18,7 +19,7 @@ class WellsActiveScreen extends StatefulWidget {
 
 class _WellsActiveScreenState extends State<WellsActiveScreen> {
   late Future<List<WellActive>> _futureWells;
-  final PduApi _api = GetIt.I<PduApi>();
+  final PduApi _api = Get.find<PduApi>();
 
   @override
   void initState() {

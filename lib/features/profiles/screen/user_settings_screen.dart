@@ -1,5 +1,6 @@
 // lib/features/profile/screens/user_settings_screen.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/screens/login/login_screen.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
@@ -16,7 +17,7 @@ class UserSettingsScreen extends StatefulWidget {
 }
 
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
-  final AuthService _authService = GetIt.I<AuthService>();
+  final AuthService _authService = Get.find<AuthService>();
   String? _email;
   String? _displayName;
 

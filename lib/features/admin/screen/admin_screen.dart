@@ -1,5 +1,6 @@
 // lib/features/admin/screens/admin_screen.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/screen/users_list_screen.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
@@ -16,7 +17,7 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen> {
-  final AuthService _authService = GetIt.I<AuthService>();
+  final AuthService _authService = Get.find<AuthService>();
   String? _adminEmail;
 
   @override

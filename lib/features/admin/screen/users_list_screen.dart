@@ -1,5 +1,6 @@
 // lib/features/admin/screens/users_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/app_user_model.dart';
 import 'package:pdu_mobile_rto_app/features/admin/widgets/add_user_dialog.dart';
@@ -15,7 +16,7 @@ class UsersListScreen extends StatefulWidget {
 }
 
 class _UsersListScreenState extends State<UsersListScreen> {
-  final AuthService _authService = GetIt.I<AuthService>();
+  final AuthService _authService = Get.find<AuthService>();
   late Future<List<AppUser>> _usersFuture;
 
   @override

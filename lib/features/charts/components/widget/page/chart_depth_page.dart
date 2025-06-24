@@ -8,6 +8,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/add_
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/miscellaneous/chart_control_buttons.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/miscellaneous/parameter_dashboard.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 
@@ -16,7 +17,7 @@ class ChartDepthPage extends StatelessWidget {
 
   final String? multiMode;
   final List<String> trackTypes;
-  final DrillingController controller;
+  final DepthDrillingController controller;
   final PageController multiCtrl1, multiCtrl2, depthCtrl;
   final ValueNotifier<int> multiNotifier1, multiNotifier2, depthNotifier;
   final Box<ParameterItem>? parameterBox;
@@ -104,7 +105,7 @@ class ChartDepthPage extends StatelessWidget {
           Expanded(
             child: MultiChart(
               tracks: leftTracks,
-              controller: controller,
+              depthController: controller,
               pageController: multiCtrl1,
               pageNotifier: multiNotifier1,
               mode: multiMode!,
@@ -120,7 +121,7 @@ class ChartDepthPage extends StatelessWidget {
           Expanded(
             child: MultiChart(
               tracks: rightTracks,
-              controller: controller,
+              depthController: controller,
               pageController: multiCtrl2,
               pageNotifier: multiNotifier2,
               mode: multiMode!,
@@ -152,7 +153,7 @@ class ChartDepthPage extends StatelessWidget {
                       controller: depthCtrl,
                       pageNotifier: depthNotifier,
                       trackTypes: trackTypes,
-                      drillingController: controller,
+                      depthDrillingController: controller,
                       wellActive: wellActive,
                       parameterBox: parameterBox!,
                       onFieldChanged: onFieldChanged,
@@ -188,7 +189,6 @@ class ChartDepthPage extends StatelessWidget {
                                   context: context,
                                   builder: (_) => AddTrackDialog(
                                     parameterBox: parameterBox!,
-                                    controller: controller,
                                     wellActive: wellActive,
                                   ),
                                 );

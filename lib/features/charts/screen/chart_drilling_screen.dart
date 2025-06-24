@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_depth_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/shared_preferences/model/depth_config.dart';
@@ -9,7 +10,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/dept
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_depth_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/page/chart_time_page.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
-import 'package:pdu_mobile_rto_app/features/notification/model/snackbar_notification.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/notification/screen/notification_settings_screen.dart';
 import 'package:pdu_mobile_rto_app/features/profiles/screen/user_settings_screen.dart';
 import 'package:pdu_mobile_rto_app/features/remarks/screen/remarks_screen.dart';
@@ -19,7 +20,6 @@ import '../components/widget/dialog/add_parameter_dialog.dart';
 import '../../home/screen/home_screen_widget.dart';
 import '../model/parameter_item.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:get_it/get_it.dart';
 
 class DrillingChartScreen extends StatefulWidget {
   final WellActive wellActive;
@@ -32,7 +32,9 @@ class DrillingChartScreen extends StatefulWidget {
 
 class _DrillingChartScreenState extends State<DrillingChartScreen> {
   // Core data & Hive box
-  final DrillingController controller = Get.put(DrillingController(), permanent: true);
+  final DrillingController controller = Get.find<DrillingController>();
+  final DepthDrillingController depthController = Get.find<DepthDrillingController>();
+
   Box<ParameterItem>? parameterBox;
   Box<ParameterItem>? depthParameterBox;
   StreamSubscription<BoxEvent>? _paramSub;
@@ -71,7 +73,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     super.initState();
 
     _loadDepthConfig();
-
+    _setupPageListeners();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
 
@@ -84,17 +86,17 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       _depthParameterSub = depthParameterBox!.watch().listen((_) => setState(() {}));
 
 
-      _setupPageListeners();
+
 
       setState(() => _isDataLoaded = true);
 
       await controller.initializeLiveTimeData(wellActive: widget.wellActive);
 
-      if (_depthConfigLoaded && _depthConfig.disabled) {
-        await controller.initializeDepthData(wellActive: widget.wellActive);
-      }
+      // if (_depthConfigLoaded && _depthConfig.disabled) {
+      //   await depthController.initializeDepthData(wellActive: widget.wellActive);
+      // }
 
-      await controller.setActiveWellForNotifications(widget.wellActive);
+      // await controller.setActiveWellForNotifications(widget.wellActive);
 
       if(mounted) {
         setState(() {
@@ -128,6 +130,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _paramSub?.cancel();
     _depthParameterSub?.cancel();
     controller.deleteData();
+    depthController.deleteData();
     super.dispose();
   }
 
@@ -138,6 +141,95 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     _depthCtrl.addListener(() {
       _depthNotifier.value = (_depthCtrl.page ?? 0).round();
     });
+  }
+
+  void _setupSnackbarListeners() {
+    ever(controller.transientNotification, (notification) {
+      if(notification != null && mounted) {
+        _showSnackbar(context, notification);
+        controller.transientNotification.value = null;
+      }
+    });
+
+    ever(depthController.transientNotification, (notification) {
+      if(notification != null && mounted) {
+        _showSnackbar(context, notification);
+        depthController.transientNotification.value = null;
+      }
+    });
+
+  }
+
+  void _showSnackbar(BuildContext context, dynamic notification) {
+    if (notification != null && mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final snackBar = SnackBar(
+        margin: const EdgeInsets.all(12),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: CColors.tertiaryColor.withOpacity(0.95),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notification.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text(notification.message, style: const TextStyle(color: Colors.white)),
+          ],
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      // Reset the value on the specific controller that triggered it
+      if (notification == controller.transientNotification.value) {
+        controller.transientNotification.value = null;
+      } else if (notification == depthController.transientNotification.value) {
+        depthController.transientNotification.value = null;
+      }
+    }
+  }
+
+  Widget _buildFab() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child:_selectedIndex == 0
+          ? FloatingActionButton(
+        backgroundColor: CColors.primaryColor,
+        onPressed: () {
+          Box<ParameterItem> targetBox;
+
+          if (_selectedIndex == 0) {
+            targetBox = parameterBox!;
+          } else if (_selectedIndex == 1) {
+            targetBox = parameterBox!;
+          } else if (_selectedIndex == 2) {
+            targetBox = depthParameterBox!;
+          } else {
+            return;
+          }
+          showDialog(
+            context: context,
+            builder: (_) => AddParameterDialog(
+              wellActive: widget.wellActive,
+              parameterBox: targetBox,
+              controller: controller,
+            ),
+          );
+
+
+        },
+        child: const Icon(Icons.add),
+      )
+          : (_selectedIndex == 1 || _selectedIndex == 2)
+          ? FloatingActionButton(
+        backgroundColor: CColors.primaryColor,
+        onPressed: () => setState(
+                () => _isDashboardVisible = !_isDashboardVisible),
+        child: Icon(_isDashboardVisible
+            ? Icons.visibility_off
+            : Icons.visibility),
+      )
+          : null,
+    );
   }
 
   Future<void> _loadDepthConfig() async {
@@ -156,7 +248,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     }
   }
 
-
+  
   Future<void> _initializeDataForCurrentTab() async {
     if (_selectedIndex == 0) {
       return;
@@ -205,8 +297,12 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     // We now have a clear separation of concerns. The depth tab has its own
     // initialization flow, while other tabs use the general method.
     if (index == 2) {
-      // For the depth tab, the dialog flow handles the data initialization.
-      _onDepthTabSelected();
+      if (_depthConfigLoaded && !_depthConfig.disabled && _depthDialogFirstTime) {
+        _onDepthTabSelected();
+      } else if (depthController.depthData.isEmpty) {
+        // Otherwise, if data is empty, just initialize it.
+        _onDepthTabSelected();
+      }
     } else {
       // For all other tabs, initialize data normally.
       _initializeDataForCurrentTab();
@@ -237,9 +333,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       if (result == null) {
         // User dismissed the dialog. We can either do nothing or load with
         // default values. Let's load with defaults if data is empty.
-        if (controller.depthData.isEmpty) {
+        if (depthController.depthData.isEmpty) {
           setState(() => _isSearching = true);
-          await controller.initializeDepthData(wellActive: widget.wellActive);
+          await depthController.initializeDepthData(wellActive: widget.wellActive);
           setState(() => _isSearching = false);
         }
       } else {
@@ -257,25 +353,24 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
             disabled: result.doNotShowAgain
         );
 
-        controller.depthData.clear();
+        depthController.depthData.clear();
         setState(() => _isSearching = true);
-        await controller.initializeDepthData(wellActive: widget.wellActive);
+        await depthController.initializeDepthData(wellActive: widget.wellActive);
         setState(() => _isSearching = false);
       }
     } else {
       // This path is for when the dialog is disabled or has already been shown.
       // Fetch data directly.
-      if (controller.depthData.isEmpty) {
+      if (depthController.depthData.isEmpty) {
         setState(() => _isSearching = true);
-        await controller.initializeDepthData(wellActive: widget.wellActive);
+        await depthController.initializeDepthData(wellActive: widget.wellActive);
         setState(() => _isSearching = false);
       } else {
         // If data already exists, just make sure it's displayed.
-        controller.updateDisplayedDepthChartData();
+        depthController.updateDisplayedDepthChartData();
       }
     }
   }
-
 
   void _onFieldChanged(String name, dynamic value) {
     setState(() {
@@ -294,8 +389,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
       }
     });
   }
-
-
+  
   void _showChartTypeMenu(int index) async {
 
     final mode = (index == 1) ? 'time' : 'depth';
@@ -386,166 +480,79 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     ],
   );
 
-
-
   @override
   Widget build(BuildContext context) {
-    return GetX<DrillingController>(
-      builder: (controller) {
-        if (controller.transientNotification.value != null) {
+    if (parameterBox == null || depthParameterBox == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final notification = controller.transientNotification.value;
-            if (notification != null && mounted) {
-
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-              // Then, create and show the new one.
-              final snackBar = SnackBar(
-                margin: const EdgeInsets.all(12),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                backgroundColor: CColors.tertiaryColor.withOpacity(0.95),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(notification.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text(notification.message, style: const TextStyle(color: Colors.white)),
-                  ],
-                ),
-              );
-
-              ScaffoldMessenger.of(context).showSnackBar(snackBar);
-
-              controller.transientNotification.value = null;
-            }
-          });
-
-        }
-
-        // The rest of the build method returns your actual screen UI.
-        if (parameterBox == null || depthParameterBox == null) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final pages = [
-          HomeScreenWidget(
-            controller: controller,
-            parameterBox: parameterBox,
-            depthParameterBox: depthParameterBox,
-            currentWell: widget.wellActive,
-          ),
-          ChartTimePage(
-              multiMode: _multiMode,
-              trackTypes: parameterBox!.values.map((p) => p.trackType).toSet().toList(),
-              controller: controller,
-              multiCtrl1: _multiCtrl1,
-              multiCtrl2: _multiCtrl2,
-              timeCtrl: _timeCtrl,
-              multiNotifier1: _multiNotifier1,
-              multiNotifier2: _multiNotifier2,
-              timeNotifier: _timeNotifier,
-              parameterBox: parameterBox,
-              isDashboardVisible: _isDashboardVisible,
-              wellActive: widget.wellActive,
-              onFieldChanged: _onFieldChanged),
-          ChartDepthPage(
-              multiMode: _multiMode,
-              trackTypes: depthParameterBox!.values.map((p) => p.trackType).toSet().toList(),
-              controller: controller,
-              multiCtrl1: _multiCtrl1,
-              multiCtrl2: _multiCtrl2,
-              depthCtrl: _depthCtrl,
-              multiNotifier1: _multiNotifier1,
-              multiNotifier2: _multiNotifier2,
-              depthNotifier: _depthNotifier,
-              parameterBox: depthParameterBox,
-              isDashboardVisible: _isDashboardVisible,
-              wellActive: widget.wellActive,
-              onFieldChanged: _onFieldChanged),
-          RemarksScreen(wellActive: widget.wellActive),
-          NotificationSettingsScreen(wellActive: widget.wellActive),
-          const UserSettingsScreen(),
-        ];
-
-        if(_selectedIndex == 2 && _depthConfigLoaded && !_depthConfig.disabled && _depthDialogFirstTime) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _onDepthTabSelected();
-          });
-        }
+    final pages = [
+      HomeScreenWidget(
+        controller: controller,
+        parameterBox: parameterBox,
+        depthParameterBox: depthParameterBox,
+        currentWell: widget.wellActive,
+      ),
+      ChartTimePage(
+          multiMode: _multiMode,
+          trackTypes: parameterBox!.values.map((p) => p.trackType).toSet().toList(),
+          controller: controller,
+          multiCtrl1: _multiCtrl1,
+          multiCtrl2: _multiCtrl2,
+          timeCtrl: _timeCtrl,
+          multiNotifier1: _multiNotifier1,
+          multiNotifier2: _multiNotifier2,
+          timeNotifier: _timeNotifier,
+          parameterBox: parameterBox,
+          isDashboardVisible: _isDashboardVisible,
+          wellActive: widget.wellActive,
+          onFieldChanged: _onFieldChanged),
+      ChartDepthPage(
+          multiMode: _multiMode,
+          trackTypes: depthParameterBox!.values.map((p) => p.trackType).toSet().toList(),
+          controller: depthController,
+          multiCtrl1: _multiCtrl1,
+          multiCtrl2: _multiCtrl2,
+          depthCtrl: _depthCtrl,
+          multiNotifier1: _multiNotifier1,
+          multiNotifier2: _multiNotifier2,
+          depthNotifier: _depthNotifier,
+          parameterBox: depthParameterBox,
+          isDashboardVisible: _isDashboardVisible,
+          wellActive: widget.wellActive,
+          onFieldChanged: _onFieldChanged),
+      RemarksScreen(wellActive: widget.wellActive),
+      NotificationSettingsScreen(wellActive: widget.wellActive),
+      const UserSettingsScreen(),
+    ];
 
 
-        return Scaffold(
-          bottomNavigationBar: _buildBottomNav(),
-          floatingActionButton: Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child:_selectedIndex == 0
-                ? FloatingActionButton(
-              backgroundColor: CColors.primaryColor,
-              onPressed: () {
-                Box<ParameterItem> targetBox;
-
-                if (_selectedIndex == 0) {
-                  targetBox = parameterBox!;
-                } else if (_selectedIndex == 1) {
-                  targetBox = parameterBox!;
-                } else if (_selectedIndex == 2) {
-                  targetBox = depthParameterBox!;
-                } else {
-                  return;
-                }
-                showDialog(
-                  context: context,
-                  builder: (_) => AddParameterDialog(
-                    wellActive: widget.wellActive,
-                    parameterBox: targetBox,
-                    controller: controller,
-                  ),
-                );
-
-
-              },
-              child: const Icon(Icons.add),
-            )
-                : (_selectedIndex == 1 || _selectedIndex == 2)
-                ? FloatingActionButton(
-              backgroundColor: CColors.primaryColor,
-              onPressed: () => setState(
-                      () => _isDashboardVisible = !_isDashboardVisible),
-              child: Icon(_isDashboardVisible
-                  ? Icons.visibility_off
-                  : Icons.visibility),
-            )
-                : null,
-          ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          body: SafeArea(
+    return Scaffold(
+        bottomNavigationBar: _buildBottomNav(),
+        floatingActionButton: _buildFab(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        body: SafeArea(
             child: Stack(
               children: [
                 Column(
                   children: [
-                    Expanded(child: pages[_selectedIndex]),
+                    Expanded(child:pages[_selectedIndex]),
                   ],
                 ),
-
-                if (!_isDataLoaded || _isSearching)
+                if(!_isDataLoaded || _isSearching)
                   Positioned.fill(
-                    child: Container(
-                      color: Colors.white.withOpacity(0.8),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                  ),
+                      child: Container(
+                          color: Colors.white.withOpacity(0.8),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          )
+                      )
+                  )
               ],
-            ),
-          ),
-        );
-      },
+            )
+        )
     );
   }
 

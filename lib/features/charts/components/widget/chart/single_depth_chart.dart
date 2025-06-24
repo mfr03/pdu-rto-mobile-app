@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:get/get.dart';
-
 
 class SingleDepthChart extends StatefulWidget {
   final String title;
   final String trackType;
   final Map<String, num Function(DepthDrillingData)> variableMap;
-  final DrillingController controller;
+  final DepthDrillingController controller;
   final Map<String, Color> colorMap;
   final Box<ParameterItem> parameterBox;
 
@@ -53,7 +53,6 @@ class _SingleDepthChartState extends State<SingleDepthChart>
           return const SizedBox.shrink();
         }
 
-        // Get the specific data point using the reliable index.
         final DepthDrillingData drillData =
         widget.controller.displayedDataDepth[pointIndex];
         final String formattedDateTime =
@@ -61,7 +60,6 @@ class _SingleDepthChartState extends State<SingleDepthChart>
 
         List<Widget> children = [];
 
-        // Add the DateTime as a header.
         children.add(
           Padding(
             padding: const EdgeInsets.only(bottom: 4.0),
@@ -75,8 +73,6 @@ class _SingleDepthChartState extends State<SingleDepthChart>
           ),
         );
 
-        // Manually build the info for each series using the widget's own properties.
-        // This avoids any problematic internal library classes.
         for (final entry in widget.variableMap.entries) {
           final String seriesName = entry.key;
           final num yValue = entry.value(drillData);
@@ -116,10 +112,11 @@ class _SingleDepthChartState extends State<SingleDepthChart>
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // The Obx wrapper will now listen for changes to the nice axis range
+    // in addition to the data itself.
     return Obx(() {
       final dataList = widget.controller.displayedDataDepth.toList();
 
@@ -135,20 +132,17 @@ class _SingleDepthChartState extends State<SingleDepthChart>
     late final NumericAxis primaryAxis;
     final additionalAxes = <NumericAxis>[];
 
-
     if (paramNames.isNotEmpty) {
       final firstParamName = paramNames.first;
 
-      final ParameterItem? firstParamItem = widget.parameterBox.values
-          .firstWhere(
+      final ParameterItem? firstParamItem = widget.parameterBox.values.firstWhere(
             (p) => p.name == firstParamName && p.trackType == widget.trackType,
       );
 
       if (firstParamItem == null) {
-        primaryAxis = NumericAxis(title: const AxisTitle(
-            text: 'Error: Param not found'));
+        primaryAxis =
+            NumericAxis(title: const AxisTitle(text: 'Error: Param not found'));
       } else {
-
         final double firstMin = firstParamItem.scaleStart.toDouble();
         final double firstMax = firstParamItem.scaleEnd.toDouble();
 
@@ -158,9 +152,9 @@ class _SingleDepthChartState extends State<SingleDepthChart>
           maximum: firstMax,
           opposedPosition: true,
           axisLine: const AxisLine(width: 0),
-          majorGridLines: const MajorGridLines(width: 2, dashArray: [4,3]),
+          majorGridLines: const MajorGridLines(width: 2, dashArray: [4, 3]),
           isVisible: true,
-          labelStyle: const TextStyle(color: Colors.transparent, fontSize: 0),//
+          labelStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
         );
 
         for (final name in paramNames.skip(1)) {
@@ -175,21 +169,19 @@ class _SingleDepthChartState extends State<SingleDepthChart>
                 maximum: item.scaleEnd.toDouble(),
                 opposedPosition: true,
                 axisLine: const AxisLine(width: 0),
-                majorGridLines: const MajorGridLines(width: -5, dashArray: [4,3]),
+                majorGridLines: const MajorGridLines(width: -5, dashArray: [4, 3]),
                 isVisible: false,
               ),
             );
           }
         }
       }
-    }  else {
+    } else {
       primaryAxis = NumericAxis();
-      return Center(child: Text("No parameters configured for '${widget.title}'"));
+      return Center(
+          child: Text("No parameters configured for '${widget.title}'"));
     }
 
-    //---------------------------------------------------------------
-    // 2. Trackball & chart definition
-    //---------------------------------------------------------------
     return SfCartesianChart(
       key: ValueKey(
         'depthchart-${widget.trackType}-${widget.variableMap.keys.join(",")}',
@@ -203,24 +195,24 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       plotAreaBorderColor: Colors.grey,
       primaryXAxis: NumericAxis(
         name: 'Depth',
-        isInversed: true,            // deeper depth further “down”
+        isInversed: true, // deeper depth further “down”
+        // --- THIS IS THE FIX ---
+        // Bind the axis range to our new reactive variables in the controller.
+        // The Obx wrapper will handle updates automatically.
+        minimum: widget.controller.niceDepthAxisMin.value,
+        maximum: widget.controller.niceDepthAxisMax.value,
+        // --- END FIX ---
       ),
       primaryYAxis: primaryAxis,
       axes: additionalAxes,
       trackballBehavior: _trackballBehavior,
       zoomPanBehavior: ZoomPanBehavior(),
       legend: Legend(isVisible: false),
-
-      //-------------------------------------------------------------
-      // 3. One LineSeries per parameter → bound to its axis by name
-      //-------------------------------------------------------------
       series: widget.variableMap.entries.map((e) {
-
-
         return LineSeries<DepthDrillingData, num>(
           name: e.key,
           color: widget.colorMap[e.key],
-          yAxisName: e.key,                  //  <-- key point
+          yAxisName: e.key,
           dataSource: data,
           xValueMapper: (d, _) => d.md,
           yValueMapper: (d, _) => e.value(d),
@@ -229,7 +221,6 @@ class _SingleDepthChartState extends State<SingleDepthChart>
           animationDelay: 0,
           onRendererCreated: (ctl) =>
               widget.controller.storeSeriesController(widget.trackType, ctl),
-
         );
       }).toList(),
     );

@@ -65,7 +65,7 @@ class _SingleChartState extends State<SingleChart>
         // Add the DateTime as a header.
         children.add(
           Padding(
-            padding: const EdgeInsets.only(bottom: 4.0),
+            padding: const EdgeInsets.only(bottom: 2.0),
             child: Text(
               formattedDateTime,
               style: const TextStyle(
@@ -88,11 +88,11 @@ class _SingleChartState extends State<SingleChart>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Circle(color, 8),
-                  const SizedBox(width: 8),
+                  Circle(color, 6),
+                  const SizedBox(width: 6),
                   Text(
                     '$seriesName: ${yValue.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
                   ),
                 ],
               ),
@@ -197,6 +197,14 @@ class _SingleChartState extends State<SingleChart>
       primaryNumericAxis = NumericAxis();
     }
 
+    final DateTime? chartMin = widget.controller.currentChunkStart.value;
+    final DateTime? chartMax = widget.controller.currentChunkEnd.value;
+
+    if (chartMin == null || chartMax == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+
     return SfCartesianChart(
       key: ValueKey(
         'chart-${widget.mapString}-${widget.variableMap.keys.join(",")}',
@@ -209,6 +217,8 @@ class _SingleChartState extends State<SingleChart>
       plotAreaBorderWidth: 1,
       plotAreaBorderColor: Colors.grey,
       primaryXAxis: DateTimeAxis(
+        minimum: chartMin,
+        maximum: chartMax,
         isVisible: true,
         isInversed: true,
         dateFormat: DateFormat("HH:mm"),

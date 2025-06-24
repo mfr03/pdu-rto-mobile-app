@@ -6,6 +6,7 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/set_
 
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/set_traversal_unit_dialog.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
@@ -13,11 +14,13 @@ import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 typedef OnFieldChanged = void Function(String fieldName, dynamic newValue);
 
 class ChartControlButtons extends StatefulWidget {
+
   final BuildContext parentContext;
   final PageController controller;
   final ValueNotifier<int> pageNotifier;
   final List<String> trackTypes;
-  final DrillingController drillingController;
+  final DrillingController? drillingController;
+  final DepthDrillingController? depthDrillingController;
   final WellActive wellActive;
   final Box<ParameterItem> parameterBox;
   final OnFieldChanged onFieldChanged;
@@ -29,11 +32,12 @@ class ChartControlButtons extends StatefulWidget {
     required this.controller,
     required this.pageNotifier,
     required this.trackTypes,
-    required this.drillingController,
     required this.wellActive,
     required this.parameterBox,
     required this.onFieldChanged,
     required this.mode,
+    this.drillingController,
+    this.depthDrillingController,
   });
 
   @override
@@ -41,7 +45,7 @@ class ChartControlButtons extends StatefulWidget {
 }
 
 class _ChartControlButtonsState extends State<ChartControlButtons> {
-  // State to control the visibility of the buttons
+
   bool _areControlsVisible = true;
 
   void _showTrackSettingsDialog(String trackType) async {
@@ -147,6 +151,7 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
 
   @override
   Widget build(BuildContext context) {
+
     return ValueListenableBuilder<int>(
       valueListenable: widget.pageNotifier,
       builder: (_, pageIndex, __) {
@@ -197,13 +202,25 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                           result['start'] != null &&
                           result['end'] != null) {
                         widget.onFieldChanged("_isSearching", true);
-                        await widget.drillingController.searchDataByTimeRange(
-                          wellActive: widget.wellActive,
-                          startTime: result['start']!,
-                          endTime: result['end']!,
-                          mode: widget.mode,
-                        );
-                        widget.onFieldChanged("_isSearching", false);
+                        if(widget.mode == "time" && widget.drillingController != null) {
+                          await widget.drillingController!.searchDataByTimeRange(
+                              wellActive: widget.wellActive,
+                              startTime: result['start']!,
+                              endTime: result['end']!,
+                              mode: widget.mode
+                          );
+                          widget.onFieldChanged("_isSearching", false);
+                        } else {
+                          if(widget.depthDrillingController != null) {
+                            await widget.depthDrillingController!.searchDataByTimeRange(
+                                wellActive: widget.wellActive,
+                                startTime: result['start']!,
+                                endTime: result['end']!,
+                                mode: widget.mode
+                            );
+                            widget.onFieldChanged("_isSearching", false);
+                          }
+                        }
                       }
                     },
                   ),
@@ -229,14 +246,14 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                       color: CColors.primaryColor,
                       onPressed: () async {
                         widget.onFieldChanged("_isSearching", true);
-                        if (widget.mode == 'time') {
-                          await widget.drillingController.moveBackwardTimeChart(
+                        if (widget.mode == 'time' && widget.drillingController != null) {
+                          await widget.drillingController!.moveBackwardTimeChart(
                               wellActive: widget.wellActive);
                         } else {
-                          final success = await widget.drillingController
-                              .moveBackwardDepthChart(
-                            wellActive: widget.wellActive,
-                          );
+                          if(widget.depthDrillingController != null) {
+                            await widget.depthDrillingController!.moveBackwardDepthChart(
+                              wellActive: widget.wellActive,);
+                          }
                         }
                         widget.onFieldChanged("_isSearching", false);
                       },
@@ -253,7 +270,7 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                       ).then((newDepth) async {
                         if (newDepth != null) {
                           widget.onFieldChanged("_isSearching", true);
-                          await widget.drillingController.resetDepthChart(
+                          await widget.depthDrillingController!.resetDepthChart(
                               wellActive: widget.wellActive);
                           widget.onFieldChanged("_isSearching", false);
                         }
@@ -267,11 +284,13 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                       widget.mode == 'depth' ? null : 'Reset to live data',
                       onPressed: () async {
                         widget.onFieldChanged("_isSearching", true);
-                        if (widget.mode == 'time') {
-                          widget.drillingController.resetHistoricalTimeData();
+                        if (widget.mode == 'time' && widget.drillingController != null) {
+                          widget.drillingController!.resetHistoricalTimeData();
                         } else {
-                          await widget.drillingController
-                              .resetDepthChart(wellActive: widget.wellActive);
+                          if(widget.depthDrillingController != null) {
+                            await widget.depthDrillingController!
+                                .resetDepthChart(wellActive: widget.wellActive);
+                          }
                         }
                         widget.onFieldChanged("", null);
                         widget.onFieldChanged("_isSearching", false);
@@ -291,21 +310,16 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                       color: CColors.primaryColor,
                       onPressed: () async {
                         widget.onFieldChanged("_isSearching", true);
-                        if (widget.mode == 'time') {
-                          await widget.drillingController.fastForwardTimeChart(
+                        if (widget.mode == 'time' && widget.drillingController != null) {
+                          await widget.drillingController!.fastForwardTimeChart(
                               wellActive: widget.wellActive);
                         } else {
-                          final success = await widget.drillingController
-                              .fastForwardDepthChart(
-                            wellActive: widget.wellActive,
-                          );
-                          // if (!success && widget.parentContext.mounted) {
-                          //   ScaffoldMessenger.of(widget.parentContext)
-                          //       .showSnackBar(
-                          //     const SnackBar(
-                          //         content: Text("No newer data available.")),
-                          //   );
-                          // }
+                          if(widget.depthDrillingController != null) {
+                            await widget.depthDrillingController
+                            !.fastForwardDepthChart(
+                              wellActive: widget.wellActive,
+                            );
+                          }
                         }
                         widget.onFieldChanged("_isSearching", false);
                       },

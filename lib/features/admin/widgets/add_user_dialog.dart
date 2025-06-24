@@ -1,5 +1,6 @@
 // lib/features/admin/widgets/add_user_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/company.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
@@ -18,7 +19,7 @@ class AddUserDialog extends StatefulWidget {
 
 class _AddUserDialogState extends State<AddUserDialog> {
   final _formKey = GlobalKey<FormState>();
-  final AuthService _authService = GetIt.I<AuthService>();
+  final AuthService _authService = Get.find<AuthService>();
 
   List<Company> _companies = [];
   Company? _selectedCompany;

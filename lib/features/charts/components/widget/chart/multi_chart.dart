@@ -9,13 +9,15 @@ import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/add_
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/miscellaneous/chart_control_buttons.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/miscellaneous/parameter_dashboard.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
 
 class MultiChart extends StatelessWidget {
 
   final List<String> tracks;
-  final DrillingController controller;
+  final DrillingController? controller;
+  final DepthDrillingController? depthController;
   final PageController pageController;
   final ValueNotifier<int> pageNotifier;
   final String mode;
@@ -29,7 +31,6 @@ class MultiChart extends StatelessWidget {
 
   const MultiChart({super.key,
     required this.tracks,
-    required this.controller,
     required this.pageController,
     required this.pageNotifier,
     required this.mode,
@@ -38,15 +39,16 @@ class MultiChart extends StatelessWidget {
     required this.trackTypes,
     required this.wellActive,
     required this.onFieldChanged,
+    this.controller,
+    this.depthController,
     this.hideToolbar = false,
     this.hideXAxis = false,
   });
 
 
   List<ParameterItem> _dashboardItems(String track, int pageIdx) {
-
-    if(mode == "time") {
-      List<DrillingData> data = controller.displayedData;
+    if(mode == "time" && controller != null) {
+      List<DrillingData> data = controller!.displayedData;
       if (data.isEmpty) return [];
       final last = data.last;
       return parameterBox.values
@@ -59,8 +61,8 @@ class MultiChart extends StatelessWidget {
           updatedAt: DateTime.now(),
         );
       }).toList();
-    } else {
-      List<DepthDrillingData> data = controller.displayedDataDepth;
+    } else  {
+      List<DepthDrillingData> data = depthController!.displayedDataDepth;
       if (data.isEmpty) return [];
       final last = data.last;
       return parameterBox.values
@@ -76,10 +78,9 @@ class MultiChart extends StatelessWidget {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // todo("another drilling data to fix")
+
     final pages = tracks.map((t) {
       final varMap = <String, num Function(DrillingData)>{
         for (var p in parameterBox.values.where((p) => p.trackType == t && p.isVisible)) p.name: (d) => d.value(p.jsonKey),
@@ -98,7 +99,7 @@ class MultiChart extends StatelessWidget {
           title: CFormatter.capitalize(t),
           mapString: t,
           variableMap: varMap,
-          controller: controller,
+          controller: controller!,
           colorMap: colorMap,
           showXAxisLabel: !hideXAxis,
         );
@@ -108,7 +109,7 @@ class MultiChart extends StatelessWidget {
           title: CFormatter.capitalize(t),
           trackType: t,
           variableMap: varMapDepth,
-          controller: controller,
+          controller: depthController!,
           colorMap: colorMap,
           parameterBox: parameterBox,
         );
@@ -128,7 +129,7 @@ class MultiChart extends StatelessWidget {
                 controller: pageController,
                 pageNotifier: pageNotifier,
                 trackTypes: trackTypes,
-                drillingController: controller,
+                drillingController: controller!,
                 wellActive: wellActive,
                 parameterBox: parameterBox,
                 onFieldChanged: onFieldChanged,
@@ -158,7 +159,6 @@ class MultiChart extends StatelessWidget {
                         context: context,
                         builder: (_) => AddTrackDialog(
                           parameterBox: parameterBox,
-                          controller: controller,
                           wellActive: wellActive,
                         ),
                       ).then((_) => onFieldChanged("", null));

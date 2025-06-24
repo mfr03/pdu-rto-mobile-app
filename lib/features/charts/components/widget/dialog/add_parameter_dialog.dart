@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_unit.dart';
@@ -116,7 +117,7 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
   }
 
   Future<void> _loadVariables() async {
-    final PduApi api = GetIt.I<PduApi>();
+    final PduApi api = Get.find<PduApi>();
     try {
       final vars = await api.fetchVariables();
       final units = await api.fetchUnits();

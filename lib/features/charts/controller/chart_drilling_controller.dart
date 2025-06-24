@@ -22,7 +22,7 @@ import '../../../data/services/pdu_api/model/well_active.dart';
 
 class DrillingController extends GetxController {
 
-  final PduApi api = GetIt.I<PduApi>();
+  final PduApi api = Get.find<PduApi>();
   final RxList<DrillingData> displayedData = <DrillingData>[].obs;
   final RxList<DepthDrillingData> displayedDataDepth = <DepthDrillingData>[].obs;
 
@@ -40,7 +40,13 @@ class DrillingController extends GetxController {
   var timeChartCurrentIndex = 0.obs;
   var depthChartCurrentIndex = 0.obs;
   static const int _maxLiveTimeDataPoints = 240;
-  static const int _maxHistoricalLivePointsToKeep = 1000;
+
+  final Rx<DateTime?> currentChunkStart = Rx<DateTime?>(null);
+  final Rx<DateTime?> currentChunkEnd = Rx<DateTime?>(null);
+  final int chunkWindowHours = 1;
+
+  final Rx<double?> niceDepthAxisMin = Rx<double?>(null);
+  final Rx<double?> niceDepthAxisMax = Rx<double?>(null);
 
   WellActive? _currentActiveWell;
 
@@ -50,7 +56,7 @@ class DrillingController extends GetxController {
   final Rx<SnackbarNotification?> transientNotification = Rx<SnackbarNotification?>(null);
 
   List<ParameterNotificationSetting> _currentWellEnabledSettings = [];
-  final int notificationCooldownMinutes = 0; // Cooldown period
+  final int notificationCooldownMinutes = 0;
 
   Timer? _realtimeHomeTimer;
 
@@ -72,6 +78,52 @@ class DrillingController extends GetxController {
       isTimeChartLive.value = isLive;
     }
   }
+
+  void _updateLiveTimeDataFromHistorical() {
+    if (historicalTimeData.length > _maxLiveTimeDataPoints) {
+      // If we have more data than the max, take the most recent slice
+      final liveChunk = historicalTimeData.sublist(historicalTimeData.length - _maxLiveTimeDataPoints);
+      liveTimeData.assignAll(liveChunk);
+    } else {
+      // Otherwise, all the historical data we have is considered "live"
+      liveTimeData.assignAll(historicalTimeData);
+    }
+    print("CONTROLLER SYNC: liveTimeData updated with ${liveTimeData.length} points.");
+  }
+
+
+  Future<void> _fetchDataForChunk({required DateTime anchorTime}) async {
+    isHomeScreenLoading.value = true;
+
+    // 1. Calculate the new chunk's boundaries
+    final int hour = anchorTime.hour;
+    final DateTime chunkStart = DateTime(anchorTime.year, anchorTime.month, anchorTime.day, hour);
+    final DateTime chunkEnd = chunkStart.add(Duration(hours: chunkWindowHours));
+
+    // 2. Update the UI-bound state variables
+    currentChunkStart.value = chunkStart;
+    currentChunkEnd.value = chunkEnd;
+
+    // 3. Fetch data for this chunk.
+    // We use fetchAbsoluteTimeRangeData as it's perfect for this task.
+    // The end time is the anchorTime, so we only fill data up to that point.
+    final List<DrillingData> chunkData = await api.fetchAbsoluteTimeRangeData(
+      token: _currentActiveWell!.isApiToken, // Assuming _currentActiveWell is set
+      startTime: chunkStart,
+      endTime: anchorTime,
+    );
+
+    // 4. Replace the old data with the new chunk's data.
+    historicalTimeData.assignAll(chunkData);
+
+    _updateLiveTimeDataFromHistorical();
+
+    // 5. Update the displayed data
+    updateDisplayedTimeChartData();
+
+    isHomeScreenLoading.value = false;
+  }
+
 
   @override
   void onInit() {
@@ -146,93 +198,19 @@ class DrillingController extends GetxController {
     updateDisplayedTimeChartData(); // This populates displayedData
   }
 
-  Future<void> initializeDepthData({
-    required WellActive wellActive,
-  }) async
-  {
-    if (depthData.isNotEmpty) {
-      updateDisplayedDepthChartData();
-      _depthFirstCall = false;
-      return;
-    }
-
-    final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
-    final ts = wellActive.timeStart;
-    final te = wellActive.timeEnd;
-    final ds = cfg.start;
-    final de = cfg.end;
-
-    print("DEBUG: Fetching depth data for well: ${wellActive.wellName}, Token: ${wellActive.isApiToken}");
-    print("DEBUG: Time Range: Start = $ts, End = $te");
-    print("DEBUG: Depth Range: Start = $ds, End = $de");
-    print("DEBUG: First Call: $_depthFirstCall");
-
-
-    final data = await api.fetchDepthBasedData(
-      token: wellActive.isApiToken,
-      timeStart: ts, timeEnd: te,
-      depthStart: cfg.start, depthEnd: cfg.end,
-      first: _depthFirstCall,
-    );
-
-
-
-
-
-    if (data.isNotEmpty) {
-      _depthFirstCall = false;
-      depthData.assignAll(data);
-    } else {
-      _depthFirstCall = false;
-    }
-    depthChartCurrentIndex.value = 0;
-    updateDisplayedDepthChartData();
-  }
-
-
   Future<void> initializeLiveTimeData({required WellActive wellActive}) async {
-    isHomeScreenLoading.value = true; // Set loading to true
-    try {
-      // Reset state before fetching
-      liveDataFetchFailed.value = false;
-      liveTimeData.clear();
-      historicalTimeData.clear();
-      latestLiveTimeDataPoint.value = null;
+    _currentActiveWell = wellActive; // Ensure we have the active well
+    stopLiveUpdates();
+    liveDataFetchFailed.value = false;
+    _setLiveMode(true, source: 'initializeLiveTimeData');
 
-      final DateTime now = DateTime.now();
-      final DateTime startTime = now.subtract(const Duration(minutes: 15));
-      final String timeStartStr = CFormatter.formatDateTime(startTime);
-      final String timeEndStr = CFormatter.formatDateTime(now);
+    await _fetchDataForChunk(anchorTime: DateTime.now());
 
-      print("CONTROLLER: initializeLiveTimeData - Attempting to fetch initial LIVE window.");
-      final data = await api.fetchRealtimeDataOnce(
-          token: wellActive.isApiToken,
-          timeStart: timeStartStr,
-          timeEnd: timeEndStr
-      );
-
-      if (data.isNotEmpty) {
-        print("CONTROLLER: initializeLiveTimeData - SUCCESS, found ${data.length} live data points.");
-        liveTimeData.assignAll(data);
-        latestLiveTimeDataPoint.value = liveTimeData.last;
-
-        historicalTimeData.assignAll(data);
-        if (historicalTimeData.length > displayedDataPoints) {
-          timeChartCurrentIndex.value = historicalTimeData.length - displayedDataPoints;
-        } else {
-          timeChartCurrentIndex.value = 0;
-        }
-        updateDisplayedTimeChartData();
-        _setLiveMode(true, source: 'initializeLiveTimeData');
-        startLiveUpdates(wellActive: wellActive);
-      } else {
-        print("CONTROLLER: initializeLiveTimeData - FAILED, no live data found.");
-        liveDataFetchFailed.value = true;
-        _setLiveMode(false, source: 'initializeLiveTimeData - failed');
-        stopLiveUpdates(); // <-- STOP THE TIMER ON FAILURE
-      }
-    } finally {
-      isHomeScreenLoading.value = false; // Set loading to false
+    if (historicalTimeData.isNotEmpty) {
+      startLiveUpdates(wellActive: wellActive);
+    } else {
+      liveDataFetchFailed.value = true;
+      stopLiveUpdates();
     }
   }
 
@@ -287,14 +265,19 @@ class DrillingController extends GetxController {
   }) async
   {
     if (mode == 'time') {
+
+      debugPrint("Start Time: $startTime \n End Time: $endTime \n");
+
+      _setLiveMode(false, source: 'searchDataByTimeRange');
+
       final searchResult = await api.fetchAbsoluteTimeRangeData(
         token: wellActive.isApiToken,
         startTime: startTime,
         endTime: endTime,
       );
 
-      // This logic will now correctly show the snackbar on an empty result.
       if (searchResult.isEmpty) {
+        _setLiveMode(true, source: 'searchDataByTimeRange');
         transientNotification.value = SnackbarNotification(
             title: 'No Data',
             message: 'No time-based data found for the selected range.'
@@ -302,7 +285,12 @@ class DrillingController extends GetxController {
         return;
       }
 
+
+      currentChunkStart.value = startTime;
+      currentChunkEnd.value = endTime;
+
       if (historicalTimeData.any((p) => p.dateTime == searchResult.first.dateTime)) {
+        _setLiveMode(true, source: 'searchDataByTimeRange');
         transientNotification.value = SnackbarNotification(
           title: 'Data Exists',
           message: 'The requested data is already loaded.',
@@ -312,7 +300,7 @@ class DrillingController extends GetxController {
 
       historicalTimeData.assignAll(searchResult);
       timeChartCurrentIndex.value = 0;
-      _setLiveMode(false, source: 'searchDataByTimeRange');
+
       updateDisplayedTimeChartData();
 
       transientNotification.value = SnackbarNotification(
@@ -369,106 +357,62 @@ class DrillingController extends GetxController {
     }
   }
 
-  Future<void> fetchAndUpdateLatestLiveTimeData(
-      {required WellActive wellActive}) async {
+  Future<void> fetchAndUpdateLatestLiveTimeData({required WellActive wellActive}) async {
     if (!isTimeChartLive.value) {
       print("TIMER SKIPPED: Not in live mode.");
       return;
     }
 
-    final DateTime now = DateTime.now();
-    DateTime startTimeQuery;
+    final now = DateTime.now();
 
-    if (historicalTimeData.isNotEmpty) {
-      startTimeQuery = historicalTimeData.last.dateTime;
-    } else {
-      startTimeQuery = now.subtract(const Duration(minutes: 2));
+    // Check if we have crossed into a new chunk (e.g., time moved from 10:59 to 11:00)
+    if (now.hour != currentChunkStart.value?.hour) {
+      print("CHUNK CHANGE DETECTED: Reloading for new hour.");
+      await _fetchDataForChunk(anchorTime: now);
+      return;
     }
 
-    if (startTimeQuery.isAfter(now)) {
-      startTimeQuery = now.subtract(const Duration(seconds: 30));
-    }
-
-    final String timeStartStr = CFormatter.formatDateTime(startTimeQuery);
-    final String timeEndStr = CFormatter.formatDateTime(now);
+    // If still in the same chunk, just fetch the delta.
+    final startTimeQuery = historicalTimeData.isNotEmpty
+        ? historicalTimeData.last.dateTime
+        : currentChunkStart.value!;
 
     final newData = await api.fetchRealtimeDataOnce(
       token: wellActive.isApiToken,
-      timeStart: timeStartStr,
-      timeEnd: timeEndStr,
+      timeStart: CFormatter.formatDateTime(startTimeQuery),
+      timeEnd: CFormatter.formatDateTime(now),
     );
 
     if (newData.isNotEmpty) {
-      print("DATA REFRESH: Found ${newData.length} new data points.");
+      print("LIVE REFRESH: Found ${newData.length} new data points.");
 
-      final currentDataMap = { for (var p in historicalTimeData) p.dateTime: p };
-      for (var newPoint in newData) {
-        currentDataMap[newPoint.dateTime] = newPoint;
-      }
+      // Efficiently add new points without duplicates
+      final existingTimestamps = historicalTimeData.map((p) => p.dateTime).toSet();
+      final pointsToAdd = newData.where((p) => !existingTimestamps.contains(p.dateTime)).toList();
 
-      final fullNewList = currentDataMap.values.toList();
-      fullNewList.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      if (pointsToAdd.isNotEmpty) {
+        historicalTimeData.addAll(pointsToAdd);
+        historicalTimeData.sort((a, b) => a.dateTime.compareTo(b.dateTime)); // Ensure order
 
-      historicalTimeData.assignAll(fullNewList);
+        _updateLiveTimeDataFromHistorical();
 
-      final liveChunk = (fullNewList.length > _maxLiveTimeDataPoints)
-          ? fullNewList.sublist(fullNewList.length - _maxLiveTimeDataPoints)
-          : fullNewList;
-
-      liveTimeData.assignAll(liveChunk);
-
-      // Update the reactive variable
-      latestLiveTimeDataPoint.value = liveTimeData.last;
-
-      // --- THIS IS THE FIX ---
-      // Force all widgets listening to 'latestLiveTimeDataPoint' to rebuild.
-      // This bypasses the faulty '==' check on the DrillingData object.
-      latestLiveTimeDataPoint.refresh();
-
-      // Update the chart if we are in live mode
-      if (isTimeChartLive.value) {
-        timeChartCurrentIndex.value =
-        (historicalTimeData.length > displayedDataPoints)
-            ? historicalTimeData.length - displayedDataPoints
-            : 0;
         updateDisplayedTimeChartData();
       }
     } else {
-      print("DATA REFRESH: No new data points found.");
+      print("LIVE REFRESH: No new data points found.");
     }
   }
 
   void updateDisplayedTimeChartData() {
-    if (historicalTimeData.isEmpty) {
-      displayedData.clear();
-      return;
+    displayedData.assignAll(historicalTimeData);
+
+    // This is a good place to update the latest data point for other UI elements
+    if (historicalTimeData.isNotEmpty) {
+      latestLiveTimeDataPoint.value = historicalTimeData.last;
+      latestLiveTimeDataPoint.refresh();
+    } else {
+      latestLiveTimeDataPoint.value = null;
     }
-
-    // This is the only check we need for the lower bound.
-    if (timeChartCurrentIndex.value < 0) {
-      timeChartCurrentIndex.value = 0;
-    }
-
-    // --- THIS IS THE CRUCIAL FIX ---
-    // Previously, there was a check here that would wrongly jump to the end.
-    // Now, if the index is ever invalid (which shouldn't happen, but as a failsafe),
-    // we simply log it and do nothing. This PREVENTS the unwanted scroll.
-    if (timeChartCurrentIndex.value >= historicalTimeData.length) {
-      debugPrint(
-          "DrillingController: Warning - Attempted to update chart with an invalid index (${timeChartCurrentIndex.value}). Preventing update to stop unwanted scroll.");
-      return; // Do not update the chart, preserving the user's view.
-    }
-    // ---------------------------------
-
-    final int startIndex = timeChartCurrentIndex.value;
-    int endIndex = startIndex + displayedDataPoints;
-
-    // A final, safe check on the end index before creating the sublist.
-    if (endIndex > historicalTimeData.length) {
-      endIndex = historicalTimeData.length;
-    }
-
-    displayedData.assignAll(historicalTimeData.sublist(startIndex, endIndex));
   }
 
   void updateDisplayedDepthChartData() {
@@ -490,69 +434,23 @@ class DrillingController extends GetxController {
     }
   }
 
-
   Future<bool> fastForwardTimeChart({required WellActive wellActive}) async {
-    if (historicalTimeData.isEmpty) return false;
+    if (isTimeChartLive.value) return false; // Already at the live edge
 
-    final maxIndex = math.max(0, historicalTimeData.length - displayedDataPoints);
+    final DateTime nextChunkStart = currentChunkStart.value!.add(Duration(hours: chunkWindowHours));
+    final DateTime now = DateTime.now();
+    final DateTime liveChunkStart = DateTime(now.year, now.month, now.day, now.hour);
 
-    if (timeChartCurrentIndex.value < maxIndex) {
-      final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
-      final currentViewStartTime =
-          historicalTimeData[timeChartCurrentIndex.value].dateTime;
-      final targetStartTime =
-      currentViewStartTime.add(Duration(minutes: traversalMinutes));
-
-      final newIndex =
-      historicalTimeData.indexWhere((p) => p.dateTime.isAfter(targetStartTime));
-
-      if (newIndex != -1) {
-        final onePageForward = timeChartCurrentIndex.value + displayedDataPoints;
-        final cappedNewIndex = math.min(newIndex, onePageForward);
-        timeChartCurrentIndex.value = math.min(cappedNewIndex, maxIndex);
-        updateDisplayedTimeChartData();
-
-        // --- THIS IS THE FIX ---
-        // After moving forward, check if we have landed on the last page.
-        // If so, re-enable live mode automatically.
-        if (timeChartCurrentIndex.value == maxIndex) {
-          _setLiveMode(true, source: 'fastForwardTimeChart - reached end of loaded data');
-          // We can also trigger a notification to inform the user.
-          transientNotification.value = SnackbarNotification(
-              title: 'Live Mode Re-engaged',
-              message: 'You have reached the end of the loaded data.'
-          );
-        }
-        // -----------------------
-
-        return true;
-      }
+    // Check if we are moving into the current live chunk
+    if (!nextChunkStart.isBefore(liveChunkStart)) {
+      _setLiveMode(true, source: 'fastForwardTimeChart');
+      await initializeLiveTimeData(wellActive: wellActive); // Re-engage live mode
+    } else {
+      // Otherwise, fetch the next historical chunk.
+      // The anchor time is the very end of that chunk to fetch all its data.
+      final DateTime anchorTime = nextChunkStart.add(Duration(hours: chunkWindowHours)).subtract(const Duration(microseconds: 1));
+      await _fetchDataForChunk(anchorTime: anchorTime);
     }
-
-
-    final apiFetchMinutes = math.min(await ChartSettingsService.loadTraversalUnit(), 15);
-    final DateTime refTime = historicalTimeData.last.dateTime;
-
-    final List<DrillingData> newData = await api.fetchMoreData(
-      token: wellActive.isApiToken,
-      referenceTime: refTime,
-      forward: true,
-      count: apiFetchMinutes,
-    );
-
-    if (newData.isEmpty) {
-      _setLiveMode(true, source: 'fastForwardTimeChart - API returned no new data');
-      transientNotification.value = SnackbarNotification(
-          title: 'All Data Loaded',
-          message: 'You have reached the latest available data.'
-      );
-      return false;
-    }
-
-    historicalTimeData.addAll(newData);
-    final newMaxIndex = math.max(0, historicalTimeData.length - displayedDataPoints);
-    timeChartCurrentIndex.value = math.min(historicalTimeData.length - newData.length, newMaxIndex);
-    updateDisplayedTimeChartData();
     return true;
   }
 
@@ -560,47 +458,13 @@ class DrillingController extends GetxController {
     _setLiveMode(false, source: 'moveBackwardTimeChart');
     stopLiveUpdates();
 
-    if (timeChartCurrentIndex.value > 0) {
-      final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
-      final currentViewStartTime =
-          historicalTimeData[timeChartCurrentIndex.value].dateTime;
-      final targetStartTime =
-      currentViewStartTime.subtract(Duration(minutes: traversalMinutes));
+    if (currentChunkStart.value == null) return false;
 
-      final newIndex = historicalTimeData
-          .lastIndexWhere((p) => !p.dateTime.isAfter(targetStartTime));
+    // The anchor time is the very end of the PREVIOUS chunk.
+    final DateTime anchorTime = currentChunkStart.value!.subtract(const Duration(microseconds: 1));
+    await _fetchDataForChunk(anchorTime: anchorTime);
 
-      if (newIndex != -1) {
-        timeChartCurrentIndex.value = newIndex;
-        updateDisplayedTimeChartData();
-        return true;
-      } else {
-        timeChartCurrentIndex.value = 0;
-        updateDisplayedTimeChartData();
-      }
-    }
-
-    if (historicalTimeData.isEmpty) return false;
-
-    final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
-    final apiFetchMinutes = math.min(traversalMinutes, 15);
-
-    final DateTime referenceTime = historicalTimeData.first.dateTime;
-    final List<DrillingData> olderData = await api.fetchMoreData(
-      token: wellActive.isApiToken,
-      referenceTime: referenceTime,
-      forward: false,
-      count: apiFetchMinutes,
-    );
-
-    if (olderData.isEmpty) {
-      return false;
-    }
-
-    historicalTimeData.insertAll(0, olderData);
-    timeChartCurrentIndex.value = 0;
-    updateDisplayedTimeChartData();
-    return true;
+    return historicalTimeData.isNotEmpty;
   }
 
   void resetHistoricalTimeData() {
@@ -629,122 +493,6 @@ class DrillingController extends GetxController {
     stopLiveUpdates();
   }
 
-  Future<void> resetDepthChart({required WellActive wellActive}) async {
-    depthData.clear();
-    _depthFirstCall = true; // Ensure the next fetch is a 'first' call
-    depthChartCurrentIndex.value = 0;
-    await initializeDepthData(wellActive: wellActive);
-  }
-
-  Future<bool> fastForwardDepthChart({required WellActive wellActive}) async {
-    // 1. First, try to traverse locally
-    final nextIndex = depthChartCurrentIndex.value + depthChartBlockSize;
-    if (nextIndex < depthData.length) {
-      depthChartCurrentIndex.value = nextIndex;
-      updateDisplayedDepthChartData();
-      return true;
-    }
-
-    // 2. If at the edge, fetch new data from the API
-    if (depthData.isEmpty) return false;
-
-    final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
-    final amount = Duration(minutes: traversalMinutes);
-    final lastTime = depthData.last.dateTime;
-    final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
-
-    // Define the time range for the request
-    final timeStart = CFormatter.formatDateTime(lastTime);
-    final timeEnd = CFormatter.formatDateTime(lastTime.add(amount));
-
-    final newData = await api.fetchDepthBasedData(
-        token: wellActive.isApiToken,
-        timeStart: timeStart,
-        timeEnd: timeEnd,
-        depthStart: cfg.start,
-        depthEnd: cfg.end,
-        first: false);
-
-    if (newData.isEmpty) {
-      transientNotification.value = SnackbarNotification(
-        title: 'All Data Loaded',
-        message: 'You have reached the latest available data.',
-      );
-      return false;
-    }
-
-    if (depthData.any((p) => p.dateTime.millisecondsSinceEpoch == newData.first.dateTime.millisecondsSinceEpoch)) {
-      final startTimeString = DateFormat('HH:mm:ss').format(lastTime);
-      final endTimeString = DateFormat('HH:mm:ss').format(lastTime.add(amount));
-      transientNotification.value = SnackbarNotification(
-        title: 'Data Loaded',
-        message: 'Data for range $startTimeString - $endTimeString is already present.',
-      );
-      return false;
-    }
-
-    // 3. Add new data and move the view to the new end
-    depthData.addAll(newData);
-    depthChartCurrentIndex.value = (depthData.length > displayedDataPoints)
-        ? depthData.length - displayedDataPoints
-        : 0;
-    updateDisplayedDepthChartData();
-    return true;
-  }
-
-  Future<bool> moveBackwardDepthChart({required WellActive wellActive}) async {
-    // 1. First, try to traverse locally
-    if (depthChartCurrentIndex.value > 0) {
-      depthChartCurrentIndex.value = math.max(0, depthChartCurrentIndex.value - depthChartBlockSize);
-      updateDisplayedDepthChartData();
-      return true;
-    }
-
-    // 2. If at the start, fetch older data from the API
-    if (depthData.isEmpty) return false;
-
-    final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
-    final amount = Duration(minutes: traversalMinutes);
-    final firstTime = depthData.first.dateTime;
-    final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
-
-    // Define the time range for the request
-    final timeStart = CFormatter.formatDateTime(firstTime.subtract(amount));
-    final timeEnd = CFormatter.formatDateTime(firstTime);
-
-    final olderData = await api.fetchDepthBasedData(
-        token: wellActive.isApiToken,
-        timeStart: timeStart,
-        timeEnd: timeEnd,
-        depthStart: cfg.start,
-        depthEnd: cfg.end,
-        first: false);
-
-    if (olderData.isEmpty) {
-      transientNotification.value = SnackbarNotification(
-        title: 'All Data Loaded',
-        message: 'You have reached the beginning of the available data.',
-      );
-      return false;
-    }
-
-    if (depthData.any((p) => p.dateTime.millisecondsSinceEpoch == olderData.last.dateTime.millisecondsSinceEpoch)) {
-      final startTimeString = DateFormat('HH:mm:ss').format(firstTime.subtract(amount));
-      final endTimeString = DateFormat('HH:mm:ss').format(firstTime);
-      transientNotification.value = SnackbarNotification(
-        title: 'Data Loaded',
-        message: 'Data for range $startTimeString - $endTimeString is already present.',
-      );
-      return false;
-    }
-
-    // 3. Prepend new data and keep the view at the new beginning
-    depthData.insertAll(0, olderData);
-    depthChartCurrentIndex.value = 0;
-    updateDisplayedDepthChartData();
-    return true;
-  }
-
   void storeSeriesController(String key, ChartSeriesController ctl) {
     seriesControllers[key] = ctl;
   }
@@ -770,11 +518,5 @@ class DrillingController extends GetxController {
     }
   }
 
-  void _checkParameterThresholds(DrillingData currentData, String wellApiToken) {
-    if (_notificationSettingsBox == null || _currentActiveWell == null || _currentActiveWell!.isApiToken != wellApiToken) {
-      // print("Notification check skipped: Box null or well mismatch.");
-      return;
-    }
-  }
 
 }

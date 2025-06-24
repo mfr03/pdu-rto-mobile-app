@@ -1,5 +1,6 @@
 // codes/lib/data/services/notification_api/api_client.dart
 import 'dart:convert';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kDebugMode;
@@ -8,7 +9,7 @@ import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service
 class ApiClient {
   static const String _localPcIp = "70.153.8.55"; // Replace with your VM's actual IP if different
   static const String _devPort = "8000";
-  final AuthService _authService = GetIt.I<AuthService>();
+  final AuthService _authService = Get.find<AuthService>();
 
 
   static String get baseUrl {

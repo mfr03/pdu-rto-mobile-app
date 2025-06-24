@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
 import 'package:pdu_mobile_rto_app/features/admin/screen/admin_screen.dart';
@@ -23,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  final AuthService _authService = GetIt.I<AuthService>(); // Using GetIt
+  final AuthService _authService = Get.find<AuthService>();
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
@@ -42,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
             final String role = userData['role'] ?? 'USER';
 
-            final FcmService fcmService = GetIt.I<FcmService>();
+            final FcmService fcmService = Get.find<FcmService>();
             await fcmService.registerDeviceWithPduServer();
 
             ScaffoldMessenger.of(context).showSnackBar(

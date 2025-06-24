@@ -1,5 +1,6 @@
 // lib/features/notifications/services/local_notification_service.dart
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -67,7 +68,7 @@ class LocalNotificationService {
   static void _onDidReceiveNotificationResponse(NotificationResponse notificationResponse) async {
     final String? payload = notificationResponse.payload;
     print("Notification tapped with payload: $payload");
-    final FcmService fcmService = GetIt.I<FcmService>();
+    final FcmService fcmService = Get.find<FcmService>();
     if (payload != null && payload.isNotEmpty) {
       // Assuming _handleNotificationAcknowledge is globally accessible from main.dart or a service
       // If main.dart defines _handleNotificationAcknowledge as a top-level function, you can call it.
@@ -83,7 +84,7 @@ class LocalNotificationService {
     final String? payload = notificationResponse.payload;
     print("BACKGROUND Notification tapped with payload: $payload");
 
-    final FcmService fcmService = GetIt.I<FcmService>();
+    final FcmService fcmService = Get.find<FcmService>();
     if (payload != null && payload.isNotEmpty) {
       // Assuming _handleNotificationAcknowledge is globally accessible from main.dart or a service
       // If main.dart defines _handleNotificationAcknowledge as a top-level function, you can call it.

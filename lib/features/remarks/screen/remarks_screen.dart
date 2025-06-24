@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/remark_item.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
@@ -10,7 +11,8 @@ import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart'; // Ensure t
 class RemarksScreen extends StatefulWidget {
   final WellActive wellActive;
 
-  const RemarksScreen({Key? key, required this.wellActive}) : super(key: key);
+  const
+  RemarksScreen({Key? key, required this.wellActive}) : super(key: key);
 
   @override
   State<RemarksScreen> createState() => _RemarksScreenState();
@@ -18,7 +20,7 @@ class RemarksScreen extends StatefulWidget {
 
 class _RemarksScreenState extends State<RemarksScreen> {
   late Future<List<RemarkItem>> _futureRemarks;
-  final PduApi _pduApi = GetIt.I<PduApi>();
+  final PduApi _pduApi = Get.find<PduApi>();
 
   @override
   void initState() {

@@ -214,7 +214,6 @@ class ChartTimePage extends StatelessWidget {
                               context: context,
                               builder: (_) => AddTrackDialog(
                                 parameterBox: parameterBox!,
-                                controller: controller,
                                 wellActive: wellActive,
                               ),
                             );

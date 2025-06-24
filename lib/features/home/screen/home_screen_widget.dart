@@ -7,7 +7,6 @@ import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/features/home/components/widget/home_banner_card.dart';
 import 'package:pdu_mobile_rto_app/features/home/components/widget/home_sensor_view.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
-import 'package:pdu_mobile_rto_app/utils/well_utils.dart';
 
 class HomeScreenWidget extends StatelessWidget {
   const HomeScreenWidget({
@@ -26,14 +25,12 @@ class HomeScreenWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // PRIORITY 1: If the controller is loading ANY data for the home screen, show a spinner.
       if (controller.isHomeScreenLoading.isTrue) {
         return const Center(
           child: CircularProgressIndicator(color: CColors.primaryColor),
         );
       }
 
-      // PRIORITY 2: If loading is finished and live data failed, show the button.
       if (controller.liveDataFetchFailed.isTrue) {
         return Center(
           child: Padding(
@@ -69,7 +66,6 @@ class HomeScreenWidget extends StatelessWidget {
         );
       }
 
-      // PRIORITY 3: If loading is finished and no data was found at all.
       if (controller.liveTimeData.isEmpty) {
         return Center(
           child: Padding(
@@ -96,7 +92,6 @@ class HomeScreenWidget extends StatelessWidget {
         );
       }
 
-      // PRIORITY 4: If everything is fine, show the dashboard.
       return SingleChildScrollView(
         child: Column(
           children: [

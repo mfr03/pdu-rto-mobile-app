@@ -1,3 +1,4 @@
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 
 import 'model/well_active.dart';
@@ -7,7 +8,7 @@ class ParameterService {
   /// Fetches the first record's keys and filters numeric fields
   static Future<List<String>> fetchAvailableParameters({required WellActive wellActive}) async {
     // Use existing API to get initial data; each DrillingData retains rawData map
-    final PduApi api = GetIt.I<PduApi>();
+    final PduApi api = Get.find<PduApi>();
     final records = await api.fetchRealtimeDataIncrement(wellActive: wellActive);
     if (records.isEmpty) return [];
     // rawData is the original JSON map stored on the first element

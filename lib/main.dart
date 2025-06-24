@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/common/screen/initialization_error_screen.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
@@ -42,7 +43,7 @@ Future<void> main() async {
 
     dependencyInjectionSetup();
 
-    final FcmService fcmService = GetIt.I<FcmService>();
+    final FcmService fcmService = Get.find<FcmService>();
 
     try {
       await HiveService.initializeHive(); //
@@ -78,7 +79,7 @@ Future<void> main() async {
     }
 
 
-    final AuthService authService = GetIt.I<AuthService>(); //
+    final AuthService authService = Get.find<AuthService>(); //
     bool loggedIn = false;
     try {
       loggedIn = await authService.isLoggedIn(); //

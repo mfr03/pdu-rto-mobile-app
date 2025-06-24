@@ -1,16 +1,17 @@
 // lib/features/notification/service/fcm_service.dart (example path)
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/api_client.dart'; // PDU Server ApiClient
 import 'package:pdu_mobile_rto_app/features/notification/service/local_notification_service.dart';
 
 class FcmService {
-  final ApiClient _pduNotificationApiClient = GetIt.I<ApiClient>();
+  final ApiClient _pduNotificationApiClient = Get.find<ApiClient>();
 
   Future<void> handleNotificationAcknowledge(String? ruleId) async {
     if (ruleId != null && ruleId.isNotEmpty) {
-      final ApiClient apiClient = GetIt.I<ApiClient>(); // For PDU Notification Server
+      final ApiClient apiClient = Get.find<ApiClient>();
       try {
         print('Attempting to acknowledge notification for rule ID: $ruleId (from tap)');
         bool ackSuccess = await apiClient.acknowledgeNotification(ruleId);
