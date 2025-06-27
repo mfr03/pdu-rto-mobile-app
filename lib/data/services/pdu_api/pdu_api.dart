@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_unit.dart';
@@ -217,7 +218,6 @@ class PduApi {
         .toList();
   }
 
-  // REVISED METHOD with chunking logic
   Future<List<DepthDrillingData>> fetchDepthBasedData({
     required String token,
     required String timeStart,
@@ -309,7 +309,8 @@ class PduApi {
     required String token,
     required String timeStart,
     required String timeEnd,
-  }) async {
+  }) async
+  {
     final uri = Uri.https(_baseUrl, _realtimeRemarkEndpoint);
 
     final Map<String, dynamic> requestBody = {
@@ -349,18 +350,43 @@ class PduApi {
     }
   }
 
-  Future<List<Variable>> fetchVariables() async {
-    final uri = Uri.https(_baseUrl, '/dome_api/variable');
-    final resp = await http.get(uri);
-    if (resp.statusCode == 200) {
-      final Map<String, dynamic> body = jsonDecode(resp.body);
-      final List<dynamic> results = body['result'] ?? [];
-      return results
-          .cast<Map<String,dynamic>>()
-          .map((j) => Variable.fromJson(j))
-          .toList();
+  Future<List<DrillVariable>> fetchAvailableVariables() async { // Token is now optional
+    // 1. The URI no longer includes a token.
+    final uri = Uri.http(_baseUrl,'/dome_api/variable');
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        // 2. Decode the entire JSON object response.
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        // 3. Check the status and extract the list from the 'result' key.
+        if (responseData['status'] == 200 && responseData['result'] is List) {
+          final List<dynamic> variableList = responseData['result'];
+
+          // 4. Map the extracted list to your DrillVariable model.
+          return variableList
+              .map((json) => DrillVariable.fromJson(json))
+              .toList();
+        } else {
+          if (kDebugMode) {
+            print('API returned status ${responseData['status']} or result is not a list.');
+          }
+          return [];
+        }
+      } else {
+        if (kDebugMode) {
+          print('Failed to fetch variables. HTTP Status: ${response.statusCode}');
+        }
+        return [];
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during fetchAvailableVariables: $e');
+      }
+      return [];
     }
-    throw Exception('Failed to load variables (${resp.statusCode})');
   }
 
   Future<List<Unit>> fetchUnits() async {

@@ -79,22 +79,31 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
       setState(() => _isSearching = true);
 
-      parameterBox = await HiveService.openParameterBox();
+      parameterBox = await HiveService.openParameterBox(
+          wellApiToken: widget.wellActive.isApiToken
+      );
+      // If it's a new box and therefore empty, fill it with defaults.
+      if (parameterBox!.isEmpty) {
+        await HiveService.initializeDefaultData(parameterBox!);
+      }
       _paramSub = parameterBox!.watch().listen((_) => setState(() {}));
 
-      depthParameterBox = await HiveService.openDepthParameterBox();
+      // Open the depth parameter box for the specific well
+      depthParameterBox = await HiveService.openDepthParameterBox(
+          wellApiToken: widget.wellActive.isApiToken
+      );
+      // If it's a new box and therefore empty, fill it with defaults.
+      if (depthParameterBox!.isEmpty) {
+        await HiveService.initializeDefaultDepthData(depthParameterBox!);
+      }
       _depthParameterSub = depthParameterBox!.watch().listen((_) => setState(() {}));
+
+
       _setupSnackbarListeners();
 
       setState(() => _isDataLoaded = true);
 
       await controller.initializeLiveTimeData(wellActive: widget.wellActive);
-
-      // if (_depthConfigLoaded && _depthConfig.disabled) {
-      //   await depthController.initializeDepthData(wellActive: widget.wellActive);
-      // }
-
-      // await controller.setActiveWellForNotifications(widget.wellActive);
 
       if(mounted) {
         setState(() {

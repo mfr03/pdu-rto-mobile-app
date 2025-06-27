@@ -5,7 +5,10 @@ import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
+import 'package:pdu_mobile_rto_app/features/authentication/screens/login/login_screen.dart';
+import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
 import 'package:pdu_mobile_rto_app/features/charts/screen/chart_drilling_screen.dart';
+import 'package:pdu_mobile_rto_app/main.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
 import 'package:pdu_mobile_rto_app/utils/well_utils.dart'; // Ensure this import is present
@@ -17,15 +20,52 @@ class WellsActiveScreen extends StatefulWidget {
   State<WellsActiveScreen> createState() => _WellsActiveScreenState();
 }
 
-class _WellsActiveScreenState extends State<WellsActiveScreen> {
+class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindingObserver {
   late Future<List<WellActive>> _futureWells;
   final PduApi _api = Get.find<PduApi>();
+  final AuthService _authService = Get.find<AuthService>();
+
 
   @override
   void initState() {
     super.initState();
     _futureWells = _api.fetchActiveWells();
+
+    WidgetsBinding.instance.addObserver(this);
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      print("App resumed: Checking token validity...");
+      _checkTokenAndNavigate();
+    }
+  }
+
+  Future<void> _checkTokenAndNavigate() async {
+    final bool tokenIsExpired = await _authService.isTokenExpired();
+
+    if (tokenIsExpired) {
+      print("Token is expired. Navigating to Login Screen.");
+      await _authService.logout();
+
+      final navigator = navigatorKey.currentState;
+      if (navigator != null) {
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (Route<dynamic> route) => false,
+        );
+      }
+    }
+  }
+
 
   Widget _buildLoadingIndicator() {
     return const Center(

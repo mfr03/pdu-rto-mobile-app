@@ -47,10 +47,13 @@ dependencies:
 
   #noticication
   flutter_local_notifications: ^17.1.0
+  flutter_background_service: ^5.1.0
 
   # firebase
   firebase_core: ^2.32.0
   firebase_messaging: ^14.9.4
+
+  jwt_decode: ^0.3.1
 
 # ---- PACKAGES ---- #
 
@@ -69,33 +72,6 @@ flutter:
     - assets/images/bit_depth.svg
 
   generate: true
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 flutter_intl:
   enabled: true

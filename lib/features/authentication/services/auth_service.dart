@@ -5,10 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/app_user_model.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/company.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 
 class AuthService {
-  // TODO: Adjust the baseUrl based on your testing environment (emulator/physical device)
-  // For Android Emulator accessing host machine's localhost:
   static final String _authBaseUrl = "http://103.150.93.56:3001/api";
 
   final _secureStorage = const FlutterSecureStorage();
@@ -168,6 +167,32 @@ class AuthService {
   Future<bool> isLoggedIn() async {
     final token = await _secureStorage.read(key: _tokenKey);
     return token != null && token.isNotEmpty;
+  }
+
+  Future<bool> isTokenExpired() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('user_token');
+
+    if (token == null || token.isEmpty) {
+      // If there's no token, we can consider it "expired" for the purpose of being logged in.
+      return true;
+    }
+
+    try {
+      // Decode the token to get its payload
+      Map<String, dynamic> payload = Jwt.parseJwt(token);
+
+      // JWT 'exp' claim is in seconds since epoch.
+      final int expiryTimestamp = payload['exp'] as int;
+      final int currentTimestamp = (DateTime.now().millisecondsSinceEpoch / 1000).round();
+
+      // If the expiry time is in the past, the token is expired.
+      return currentTimestamp > expiryTimestamp;
+    } catch (e) {
+      // If the token is malformed or can't be decoded, treat it as expired.
+      print('Error decoding token: $e');
+      return true;
+    }
   }
 
   Future<String?> getToken() async {

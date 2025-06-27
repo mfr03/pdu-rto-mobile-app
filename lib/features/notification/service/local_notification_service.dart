@@ -70,10 +70,6 @@ class LocalNotificationService {
     print("Notification tapped with payload: $payload");
     final FcmService fcmService = Get.find<FcmService>();
     if (payload != null && payload.isNotEmpty) {
-      // Assuming _handleNotificationAcknowledge is globally accessible from main.dart or a service
-      // If main.dart defines _handleNotificationAcknowledge as a top-level function, you can call it.
-      // Note: Direct calls to functions in main.dart isn't always the cleanest.
-      // Consider passing a callback to initialize() or using a shared service via GetIt.
       fcmService.handleNotificationAcknowledge(payload); // Call the shared handler
     }
   }
@@ -86,10 +82,6 @@ class LocalNotificationService {
 
     final FcmService fcmService = Get.find<FcmService>();
     if (payload != null && payload.isNotEmpty) {
-      // Assuming _handleNotificationAcknowledge is globally accessible from main.dart or a service
-      // If main.dart defines _handleNotificationAcknowledge as a top-level function, you can call it.
-      // Note: Direct calls to functions in main.dart isn't always the cleanest.
-      // Consider passing a callback to initialize() or using a shared service via GetIt.
       fcmService.handleNotificationAcknowledge(payload); // Call the shared handler
     }
 

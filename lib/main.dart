@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -19,19 +21,47 @@ import 'package:pdu_mobile_rto_app/firebase_options.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kDebugMode;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pdu_mobile_rto_app/generated/l10n.dart';
-
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 ValueNotifier<InitializationStatus> initializationNotifier = ValueNotifier(InitializationStatus.pending);
 String? globalInitializationError;
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print("Handling a background message: ${message.messageId}");
-  print('Message data: ${message.data}');
-  if (message.notification != null) {
-    print('Message also contained a notification: ${message.notification}');
-  }
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Handling a background message via Firebase handler: ${message.messageId}");
 }
+
+@pragma('vm:entry-point')
+void onStart(ServiceInstance service) async {
+  // DartPluginRegistrant.ensureInitialized();
+
+  FcmService.setupBackgroundMessageHandler();
+
+  print("Persistent background service is running to keep app alive.");
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
+}
+
+Future<void> initializeKeepAliveService() async {
+  final service = FlutterBackgroundService();
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: onStart,
+      isForegroundMode: true,
+      autoStart: true,
+    ),
+    iosConfiguration: IosConfiguration(
+      autoStart: true,
+      onForeground: onStart,
+    ),
+  );
+  service.startService();
+}
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,22 +71,19 @@ Future<void> main() async {
         options: DefaultFirebaseOptions.currentPlatform
     );
 
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    await initializeKeepAliveService();
+
 
     dependencyInjectionSetup();
+
 
     final FcmService fcmService = Get.find<FcmService>();
 
     try {
       await HiveService.initializeHive(); //
-      final parameterBox = await HiveService.openParameterBox(); //
-      if (parameterBox.isEmpty) {
-        await HiveService.initializeDefaultData(parameterBox); //
-      }
-      final depthParameterBox = await HiveService.openDepthParameterBox(); //
-      if (depthParameterBox.isEmpty) {
-        await HiveService.initializeDefaultDepthData(depthParameterBox); //
-      }
+
     } catch (e) {
       globalInitializationError =
       "Failed to initialize local data storage. Please restart the app. If the problem persists, contact support. Details: $e";
@@ -74,8 +101,7 @@ Future<void> main() async {
     }
 
     try {
-      await fcmService.requestNotificationPermissions(); //
-      await fcmService.setupFcmListeners(); //
+      await fcmService.initForMainApp();
     } catch (e) {
       print('FCM setup or permission request failed: $e');
     }
@@ -87,7 +113,6 @@ Future<void> main() async {
       loggedIn = await authService.isLoggedIn(); //
     } catch (e, s) {
       print('Failed to check login status: $e');
-      // Treat as not logged in, or show specific error. For now, proceeds to login screen.
     }
 
     Widget initialScreen = const LoginScreen(); // Default
@@ -144,22 +169,23 @@ class MainApp extends StatelessWidget {
     );
 
     return MaterialApp(
-        title: S.of(context).pduMobileRto,
-        theme: CAppTheme.lightTheme,
-        darkTheme: CAppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        debugShowCheckedModeBanner: false,
-        home: ValueListenableBuilder(valueListenable: initializationNotifier,
-            builder: (context, status, child) {
-              if (status == InitializationStatus.failure) {
-                return InitializationErrorScreen(
-                    errorMessage: globalInitializationError ?? "Unknown error",
-                    onRetry: main
-                );
-              }
-              return initialScreen;
+      navigatorKey: navigatorKey,
+      onGenerateTitle: (context) => S.of(context).pduMobileRto,
+      theme: CAppTheme.lightTheme,
+      darkTheme: CAppTheme.darkTheme,
+      themeMode: ThemeMode.system,
+      debugShowCheckedModeBanner: false,
+      home: ValueListenableBuilder(valueListenable: initializationNotifier,
+          builder: (context, status, child) {
+            if (status == InitializationStatus.failure) {
+              return InitializationErrorScreen(
+                  errorMessage: globalInitializationError ?? "Unknown error",
+                  onRetry: main
+              );
             }
-        ),
+            return initialScreen;
+          }
+      ),
       localizationsDelegates: const [
         S.delegate,
         GlobalMaterialLocalizations.delegate,

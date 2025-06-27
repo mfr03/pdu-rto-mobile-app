@@ -102,6 +102,7 @@ class MultiChart extends StatelessWidget {
           controller: controller!,
           colorMap: colorMap,
           showXAxisLabel: !hideXAxis,
+          parameterBox: parameterBox,
         );
       } else {
         return SingleDepthChart(

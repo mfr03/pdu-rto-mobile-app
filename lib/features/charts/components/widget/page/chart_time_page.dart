@@ -60,6 +60,7 @@ class ChartTimePage extends StatelessWidget {
       for (var p in parameterBox!.values.where((p) => p.trackType == t))
         p.name: p.color
     },
+    parameterBox: parameterBox!,
   ))
       .toList();
 

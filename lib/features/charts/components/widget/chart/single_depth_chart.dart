@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
-import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
@@ -40,11 +39,12 @@ class _SingleDepthChartState extends State<SingleDepthChart>
   @override
   void initState() {
     super.initState();
+
     _trackballBehavior = TrackballBehavior(
       enable: true,
       activationMode: ActivationMode.longPress,
       lineType: TrackballLineType.vertical,
-      tooltipDisplayMode: TrackballDisplayMode.groupAllPoints,
+      tooltipDisplayMode: TrackballDisplayMode.floatAllPoints,
       markerSettings: const TrackballMarkerSettings(
         markerVisibility: TrackballVisibilityMode.hidden
       ),
@@ -114,21 +114,6 @@ class _SingleDepthChartState extends State<SingleDepthChart>
         );
       },
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    // The Obx wrapper will now listen for changes to the nice axis range
-    // in addition to the data itself.
-    return Obx(() {
-      final dataList = widget.controller.displayedDataDepth.toList();
-
-      return Padding(
-        padding: const EdgeInsets.all(8),
-        child: _depthChart(dataList),
-      );
-    });
   }
 
   Widget _depthChart(List<DepthDrillingData> data) {
@@ -229,4 +214,34 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       }).toList(),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    // The Obx wrapper will now listen for changes to the nice axis range
+    // in addition to the data itself.
+    return Obx(() {
+      final dataList = widget.controller.displayedDataDepth.toList();
+
+      if (dataList.isEmpty) {
+        // 2. If it's empty, show a placeholder instead of the chart.
+        //    This prevents the trackball from being initialized with no data.
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text("Loading Depth Data..."),
+            ],
+          ),
+        );
+      }
+
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: _depthChart(dataList),
+      );
+    });
+  }
+
+
 }

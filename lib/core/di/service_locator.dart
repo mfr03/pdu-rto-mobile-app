@@ -15,6 +15,6 @@ void dependencyInjectionSetup() {
     Get.lazyPut(() => PduApi(), fenix: true);
     Get.lazyPut(() => AuthService(), fenix: true);
     Get.lazyPut(() => ApiClient(), fenix: true);
-    Get.lazyPut(() => FcmService(), fenix: true);
+    Get.lazyPut(() => FcmService(Get.find<ApiClient>()), fenix: true);
 
 }

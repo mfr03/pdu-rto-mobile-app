@@ -1,20 +1,29 @@
 // lib/features/notification/service/fcm_service.dart (example path)
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/api_client.dart'; // PDU Server ApiClient
-import 'package:pdu_mobile_rto_app/features/notification/service/local_notification_service.dart';
+import 'package:pdu_mobile_rto_app/firebase_options.dart';
 
 class FcmService {
-  final ApiClient _pduNotificationApiClient = Get.find<ApiClient>();
+  final ApiClient _pduNotificationApiClient;
+
+  FcmService(this._pduNotificationApiClient);
+
+  Future<void> initForMainApp() async {
+    await requestNotificationPermissions();
+    await setupListenersForMainApp();
+  }
+
+  static void setupBackgroundMessageHandler() {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
 
   Future<void> handleNotificationAcknowledge(String? ruleId) async {
     if (ruleId != null && ruleId.isNotEmpty) {
-      final ApiClient apiClient = Get.find<ApiClient>();
       try {
         print('Attempting to acknowledge notification for rule ID: $ruleId (from tap)');
-        bool ackSuccess = await apiClient.acknowledgeNotification(ruleId);
+        bool ackSuccess = await _pduNotificationApiClient.acknowledgeNotification(ruleId);
         if (ackSuccess) {
           print('Successfully acknowledged notification for rule ID: $ruleId with server.');
         } else {
@@ -28,7 +37,7 @@ class FcmService {
     }
   }
 
-  Future<void> setupFcmListeners() async {
+  Future<void> setupListenersForMainApp() async {
 
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       if (kDebugMode) print("FCM Token Refreshed: $newToken");
@@ -39,6 +48,7 @@ class FcmService {
       }
     });
 
+
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Got a message whilst in the foreground!: ${message.notification?.title}');
       if (message.notification != null) {
@@ -46,15 +56,6 @@ class FcmService {
         if (message.data.containsKey('rule_id')) {
           ruleIdForPayload = message.data['rule_id'] as String?;
         }
-
-        // Only show local notification if you *want* to for foreground
-        // If relying purely on server, this call would be removed.
-        // For this fix, assuming it might still be active:
-        // LocalNotificationService.showNotification(
-        //   title: message.notification?.title ?? "New Message",
-        //   body: message.notification?.body ?? "",
-        //   payload: ruleIdForPayload, // IMPORTANT: Pass the rule_id (or other identifier)
-        // );
       }
     });
 
@@ -120,4 +121,12 @@ class FcmService {
     );
 
   }
+
+}
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform
+  );
 }

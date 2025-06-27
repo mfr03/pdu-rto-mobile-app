@@ -40,12 +40,15 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   final TextEditingController _endCtrl   = TextEditingController();
 
 
-  List<Variable> _availableVars = [];
-  Variable?     _selectedVar;
+  List<DrillVariable> _allVariables = [];
+  List<DrillVariable> _filteredVariables = [];
+  DrillVariable? _selectedVar;
+  bool _isTimeSelected = false;
+  bool _isDepthSelected = false;
   List<Unit> _availableUnits = [];
-  Unit?      _selectedUnit;
-  bool          _isLoading   = true;
-  String?       _errorMsg;
+  Unit? _selectedUnit;
+  bool _isLoading   = true;
+  String? _errorMsg;
 
   @override
   void initState() {
@@ -61,28 +64,8 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
     super.dispose();
   }
 
-  // Called when “Save Parameter” is tapped in step 1
-  void _saveParameter() {
-    final track = _trackNameCtrl.text.trim();
-    if (track.isEmpty) return;
-
-    final p = ParameterItem(
-      name:       _paramName!,
-      unit:       _paramUnit,
-      color:      _paramColor,
-      scaleStart: int.parse(_startCtrl.text),
-      scaleEnd:   int.parse(_endCtrl.text),
-      createdAt:  DateTime.now(),
-      updatedAt:  DateTime.now(),
-      trackType:  track,
-      jsonKey:   _selectedVar!.field,
-      apiName: _selectedVar!.name,
-      value:      '0',
-    );
-    widget.parameterBox.put(p.jsonKey, p);
-
-    // reset param fields and go back to track list
-    _paramName = _paramJsonKey = _paramUnit = null;
+  void _resetParamForm() {
+    _paramName = _paramUnit = null;
     _selectedVar = null;
     _paramColor = Colors.blue;
     _startCtrl.clear();
@@ -91,47 +74,27 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   }
 
 
-  @override
-  Widget build(BuildContext context) {
-    final maxH = MediaQuery.of(context).size.height * 0.55;
+  void _saveParameter() {
+    final track = _trackNameCtrl.text.trim();
+    if (track.isEmpty || _paramName == null || _selectedVar == null) return;
 
-    return AlertDialog(
-      title: Text(_step == 0 ? 'Add New Track' : 'Add Parameter'),
-      content: SizedBox(
-        // FIXED height = 60% of screen
-        height: maxH,
-        width: double.maxFinite,
-        child: _step == 0
-            ? _buildTrackStep()
-            : SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: _buildParamStep(),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        if (_step == 0)
-          TextButton(
-            onPressed: (_trackNameCtrl.text.trim().isNotEmpty &&
-                widget.parameterBox.values.any((p) => p.trackType == _trackNameCtrl.text.trim()))
-                ? () => Navigator.pop(context)
-                : null,
-            child: const Text('Save'),
-          )
-        else
-          TextButton(
-            onPressed: (_paramName != null &&
-                _selectedVar?.field != null &&
-                _paramUnit != null &&
-                _startCtrl.text.isNotEmpty &&
-                _endCtrl.text.isNotEmpty)
-                ? _saveParameter
-                : null,
-            child: const Text('Save'),
-          ),
-      ],
+    final p = ParameterItem(
+      name: _paramName!,
+      unit: _paramUnit, // Assuming unit is manually entered or derived
+      color: _paramColor,
+      scaleStart: int.tryParse(_startCtrl.text) ?? 0,
+      scaleEnd: int.tryParse(_endCtrl.text) ?? 1000,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      trackType: track,
+      jsonKey: _selectedVar!.field,
+      apiName: _selectedVar!.name,
+      value: '0',
     );
+    widget.parameterBox.put(p.jsonKey, p);
+    _resetParamForm();
   }
+
 
   Widget _buildTrackStep() {
     final track = _trackNameCtrl.text.trim();
@@ -180,23 +143,38 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   }
 
   Future<void> _loadVariables() async {
+
     final PduApi api = Get.find<PduApi>();
 
     try {
-      final vars = await api.fetchVariables();
-      final units = await api.fetchUnits();
-
-      setState(() {
-        _availableVars = vars;
-        _availableUnits = units;
-        _isLoading     = false;
-      });
+      final vars = await api.fetchAvailableVariables();
+      if (mounted) {
+        setState(() {
+          _allVariables = vars;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMsg   = 'Failed to load variables';
-        _isLoading  = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMsg = 'Failed to load variables';
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  void _filterVariables() {
+    setState(() {
+      _filteredVariables = _allVariables.where((variable) {
+        if (_isTimeSelected && variable.kdRecord == '01') return true;
+        if (_isDepthSelected && variable.kdRecord == '02') return true;
+        return false;
+      }).toList();
+      if (_selectedVar != null && !_filteredVariables.contains(_selectedVar)) {
+        _selectedVar = null;
+      }
+    });
   }
 
   Widget _buildParamStep() {
@@ -207,6 +185,8 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
     if (_errorMsg != null) {
       return Center(child: Text(_errorMsg!));
     }
+
+    final bool isFilterSelected = _isTimeSelected || _isDepthSelected;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -229,24 +209,32 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
         ),
         const SizedBox(height: 12),
 
+        _buildFilterCheckboxes(),
+
+        const SizedBox(height: 12),
+
         // ── Variable ────────────────────────────
 
-        DropdownButtonFormField<Variable>(
-          decoration: const InputDecoration(
-            labelText: 'Variable',
-            border: OutlineInputBorder(),
+        IgnorePointer(
+          ignoring: !isFilterSelected,
+          child: Opacity(
+            opacity: isFilterSelected ? 1.0 : 0.5,
+            child: DropdownButtonFormField<DrillVariable>(
+              decoration: InputDecoration(
+                labelText: 'Variable',
+                border: const OutlineInputBorder(),
+                hintText: !isFilterSelected ? 'Select a filter first' : null,
+              ),
+              isExpanded: true,
+              items: _filteredVariables.map((v) {
+                return DropdownMenuItem(value: v, child: Text(v.name, overflow: TextOverflow.ellipsis));
+              }).toList(),
+              value: _selectedVar,
+              onChanged: (v) => setState(() => _selectedVar = v),
+            ),
           ),
-          isExpanded: true,
-          items: _availableVars.map((v) {
-            return DropdownMenuItem(
-              value: v,
-              child: Text(v.name),
-            );
-          }).toList(),
-          value: _selectedVar,
-          validator: (_) => _selectedVar == null ? 'Required' : null,
-          onChanged: (v) => setState(() => _selectedVar = v),
         ),
+
 
         const SizedBox(height: 12),
 
@@ -328,4 +316,70 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
       ],
     );
   }
+
+  Widget _buildFilterCheckboxes() {
+    return Card(
+      elevation: 0,
+      color: Colors.grey[100],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Row(
+          children: [
+            const Text("Filter:", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Checkbox(
+              value: _isTimeSelected,
+              onChanged: (value) {
+                setState(() => _isTimeSelected = value!);
+                _filterVariables();
+              },
+            ),
+            const Text("Time"),
+            Checkbox(
+              value: _isDepthSelected,
+              onChanged: (value) {
+                setState(() => _isDepthSelected = value!);
+                _filterVariables();
+              },
+            ),
+            const Text("Depth"),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxH = MediaQuery.of(context).size.height * 0.55;
+
+    return AlertDialog(
+      title: Text(_step == 0 ? 'Add New Track' : 'Add Parameter to Track'),
+      content: SizedBox(
+        height: maxH,
+        width: double.maxFinite,
+        child: _step == 0
+            ? _buildTrackStep()
+            : SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: _buildParamStep(),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        if (_step == 0)
+          TextButton(
+            onPressed: (_trackNameCtrl.text.trim().isNotEmpty) ? () => Navigator.pop(context) : null,
+            child: const Text('Save Track'),
+          )
+        else
+          ElevatedButton(
+            onPressed: (_paramName != null && _selectedVar != null) ? _saveParameter : null,
+            child: const Text('Save Parameter'),
+          ),
+      ],
+    );
+  }
+
+
 }

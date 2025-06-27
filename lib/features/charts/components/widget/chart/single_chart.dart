@@ -16,6 +16,7 @@ class SingleChart extends StatefulWidget {
   final Map<String, num Function(DrillingData)> variableMap;
   final DrillingController controller;
   final Map<String, Color> colorMap;
+  final Box<ParameterItem> parameterBox;
   final bool showXAxisLabel;
 
   const SingleChart({
@@ -25,7 +26,9 @@ class SingleChart extends StatefulWidget {
     required this.variableMap,
     required this.controller,
     required this.colorMap,
+    required this.parameterBox,
     this.showXAxisLabel = true,
+
   });
 
   @override
@@ -146,8 +149,7 @@ class _SingleChartState extends State<SingleChart>
   }
 
   Widget _buildTrackChart(List<DrillingData> dataList) {
-    final Box<ParameterItem> parameterBox =
-        Hive.box<ParameterItem>('user_parameters');
+    final Box<ParameterItem> parameterBox = widget.parameterBox;
 
     final List<String> parameterNames = widget.variableMap.keys.toList();
 

@@ -1,31 +1,34 @@
-class Variable {
+import 'package:json_annotation/json_annotation.dart';
+
+part 'drill_variable.g.dart'; // You will need to run the build_runner for this
+
+@JsonSerializable()
+class DrillVariable {
   final String id;
+
+  @JsonKey(name: 'kd_record')
   final String kdRecord;
-  final String kdWits;
-  final String param;
+
+  @JsonKey(name: 'kd_wits')
+  final String? kdWits;
+
+  final String? param;
   final String name;
   final String field;
   final String? cluster;
 
-  Variable({
+  DrillVariable({
     required this.id,
     required this.kdRecord,
-    required this.kdWits,
-    required this.param,
+    this.kdWits,
+    this.param,
     required this.name,
     required this.field,
     this.cluster,
   });
 
-  factory Variable.fromJson(Map<String, dynamic> json) {
-    return Variable(
-      id:        json['id']        != null ? json['id'].toString()        : '',
-      kdRecord:  json['kd_record'] != null ? json['kd_record'].toString() : '',
-      kdWits:    json['kd_wits']   != null ? json['kd_wits'].toString()   : '',
-      param:     json['param']     != null ? json['param'].toString()     : '',
-      name:      json['name']      != null ? json['name'].toString()      : '',
-      field:     json['field']     != null ? json['field'].toString()     : '',
-      cluster:   json['cluster']?.toString(),
-    );
-  }
+  factory DrillVariable.fromJson(Map<String, dynamic> json) =>
+      _$DrillVariableFromJson(json);
+
+  Map<String, dynamic> toJson() => _$DrillVariableToJson(this);
 }

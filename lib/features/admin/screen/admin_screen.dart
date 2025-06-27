@@ -5,6 +5,7 @@ import 'package:pdu_mobile_rto_app/features/admin/screen/users_list_screen.dart'
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
 import 'package:pdu_mobile_rto_app/features/wells_selections/wells_active.dart';
 import 'package:pdu_mobile_rto_app/generated/l10n.dart';
+import 'package:pdu_mobile_rto_app/main.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/screens/login/login_screen.dart'; // For logout
@@ -17,7 +18,7 @@ class AdminScreen extends StatefulWidget {
   State<AdminScreen> createState() => _AdminScreenState();
 }
 
-class _AdminScreenState extends State<AdminScreen> {
+class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
   final AuthService _authService = Get.find<AuthService>();
   String? _adminEmail;
 
@@ -25,7 +26,44 @@ class _AdminScreenState extends State<AdminScreen> {
   void initState() {
     super.initState();
     _loadAdminData();
+
+    WidgetsBinding.instance.addObserver(this);
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      print("App resumed: Checking token validity...");
+      _checkTokenAndNavigate();
+    }
+  }
+
+  Future<void> _checkTokenAndNavigate() async {
+    final bool tokenIsExpired = await _authService.isTokenExpired();
+
+    if (tokenIsExpired) {
+      print("Token is expired. Navigating to Login Screen.");
+      await _authService.logout();
+
+      // MODIFIED: Use the global navigator key. This is much safer.
+      // It ensures we have the correct context for navigation.
+      final navigator = navigatorKey.currentState;
+      if (navigator != null) {
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (Route<dynamic> route) => false,
+        );
+      }
+    }
+  }
+
 
   Future<void> _loadAdminData() async {
     final email = await _authService.getEmail();
