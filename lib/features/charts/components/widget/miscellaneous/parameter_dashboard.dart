@@ -78,6 +78,9 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
 
   @override
   Widget build(BuildContext context) {
+
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
       type: MaterialType.transparency,
       child: Container(
@@ -138,7 +141,8 @@ class _ParameterDashboardState extends State<ParameterDashboard> {
               Transform.translate(
                 offset: const Offset(0, -12),
                 child: Container(
-                  decoration: CAppTheme.elevatedContainer,
+                  decoration: isDarkMode ?
+                  CAppTheme.elevatedContainer : CAppTheme.elevatedContainer,
                   padding: const EdgeInsets.only(bottom: 8),
                   child: SizedBox(
                     height: 200,

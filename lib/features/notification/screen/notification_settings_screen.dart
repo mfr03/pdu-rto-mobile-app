@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
+import 'package:pdu_mobile_rto_app/data/services/notification_api/client_id_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/parameter_notification_setting.dart';
 import 'package:pdu_mobile_rto_app/features/notification/components/dialog/edit_notification_dialog.dart';
 
@@ -37,8 +38,11 @@ class _NotificationSettingsScreenState
 
   Future<void> _openBoxAndListen() async {
     // Ensure the box is open
+
     if (!Hive.isBoxOpen(HiveService.getParameterNotificationBoxName())) {
-      _settingsBox = await HiveService.openParameterNotificationSettings();
+      _settingsBox = await HiveService.openParameterNotificationSettings(
+        userId: await ClientIdService.getPersistentClientId()
+      );
     } else {
       _settingsBox = Hive.box<ParameterNotificationSetting>(
           HiveService.getParameterNotificationBoxName());

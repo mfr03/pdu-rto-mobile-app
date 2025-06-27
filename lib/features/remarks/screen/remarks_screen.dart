@@ -29,10 +29,8 @@ class _RemarksScreenState extends State<RemarksScreen> {
   }
 
   void _fetchRemarks() {
-    // Define the 15-minute time window for the remarks API.
-    // We'll fetch remarks from 15 minutes ago up to the current time.
     final DateTime now = DateTime.now();
-    final DateTime fifteenMinutesAgo = now.subtract(const Duration(minutes: 15));
+    final DateTime fifteenMinutesAgo = now.subtract(const Duration(hours: 4));
 
     final String timeEndFormatted = CFormatter.formatDateTime(now);
     final String timeStartFormatted = CFormatter.formatDateTime(fifteenMinutesAgo);

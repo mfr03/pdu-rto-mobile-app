@@ -9,31 +9,35 @@ class ParameterNotificationSetting extends HiveObject {
   String wellApiToken; // Links setting to a specific well
 
   @HiveField(1)
-  String parameterJsonKey; // e.g., "ropi", "bitdepth"
+  final String wellName; // <-- ADD THIS FIELD
 
   @HiveField(2)
-  String parameterName; // e.g., "ROP Inst (m/hr)", "Bit Depth (m)" for display
+  String parameterJsonKey; // e.g., "ropi", "bitdepth"
 
   @HiveField(3)
-  double thresholdValue;
+  String parameterName; // e.g., "ROP Inst (m/hr)", "Bit Depth (m)" for display
 
   @HiveField(4)
-  String condition; // "above", "below" (can be an enum later)
+  double thresholdValue;
 
   @HiveField(5)
-  bool isEnabled;
+  String condition; // "above", "below" (can be an enum later)
 
   @HiveField(6)
-  DateTime? lastNotificationTime; // To prevent spamming
+  bool isEnabled;
 
   @HiveField(7)
-  String? notes; // Optional user notes for the alert
+  DateTime? lastNotificationTime; // To prevent spamming
 
   @HiveField(8)
+  String? notes; // Optional user notes for the alert
+
+  @HiveField(9)
   int? serverId;
 
   ParameterNotificationSetting({
     required this.wellApiToken,
+    required this.wellName,
     required this.parameterJsonKey,
     required this.parameterName,
     required this.thresholdValue,
@@ -55,6 +59,7 @@ class ParameterNotificationSetting extends HiveObject {
   }) {
     return ParameterNotificationSetting(
       wellApiToken: wellApiToken,
+      wellName: wellName,
       parameterJsonKey: parameterJsonKey,
       parameterName: parameterName,
       thresholdValue: thresholdValue ?? this.thresholdValue,

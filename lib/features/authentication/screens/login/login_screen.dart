@@ -5,6 +5,7 @@ import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.da
 import 'package:pdu_mobile_rto_app/features/admin/screen/admin_screen.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
 import 'package:pdu_mobile_rto_app/features/wells_selections/wells_active.dart';
+import 'package:pdu_mobile_rto_app/generated/l10n.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
 import 'package:pdu_mobile_rto_app/utils/theme/text_theme.dart';
@@ -47,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
             await fcmService.registerDeviceWithPduServer();
 
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Login Successful!')),
+              SnackBar(content: Text(S.of(context).loginSuccessful)),
             );
 
             if (role.toUpperCase() == 'ADMIN') {

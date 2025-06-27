@@ -8,11 +8,13 @@ import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 class SetThresholdDialog extends StatefulWidget {
   final ParameterItem parameterItem;
   final String wellApiToken;
+  final String wellName;
 
   const SetThresholdDialog({
     Key? key,
     required this.parameterItem,
     required this.wellApiToken,
+    required this.wellName
   }) : super(key: key);
 
   @override
@@ -55,6 +57,7 @@ class _SetThresholdDialogState extends State<SetThresholdDialog> {
 
       final newSetting = ParameterNotificationSetting(
         wellApiToken: widget.wellApiToken,
+        wellName: widget.wellName,
         parameterJsonKey: widget.parameterItem.jsonKey,
         parameterName: widget.parameterItem.name,
         thresholdValue: thresholdValue,

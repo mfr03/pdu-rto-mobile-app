@@ -2,16 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:intl/intl.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
+import 'package:pdu_mobile_rto_app/data/services/notification_api/client_id_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/parameter_notification_setting.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drilling_data.dart';
-import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_depth_service.dart';
-import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_settings_service.dart';
 import 'package:pdu_mobile_rto_app/features/notification/model/app_notification_info.dart';
 import 'package:pdu_mobile_rto_app/features/notification/model/snackbar_notification.dart';
 import 'package:pdu_mobile_rto_app/utils/formatters/formatter.dart';
@@ -498,8 +495,11 @@ class DrillingController extends GetxController {
   }
 
   Future<void> setActiveWellForNotifications(WellActive well) async {
+
     _currentActiveWell = well;
-    _notificationSettingsBox = await HiveService.openParameterNotificationSettings();
+    _notificationSettingsBox = await HiveService.openParameterNotificationSettings(
+      userId: await ClientIdService.getPersistentClientId()
+    );
     if (_notificationSettingsBox != null && _currentActiveWell != null) {
       _loadEnabledSettingsForCurrentWell();
       _notificationSettingsBox!.watch().listen((event) { // Listen for changes to settings

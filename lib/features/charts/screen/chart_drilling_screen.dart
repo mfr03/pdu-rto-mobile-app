@@ -84,9 +84,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
 
       depthParameterBox = await HiveService.openDepthParameterBox();
       _depthParameterSub = depthParameterBox!.watch().listen((_) => setState(() {}));
-
-
-
+      _setupSnackbarListeners();
 
       setState(() => _isDataLoaded = true);
 
@@ -491,6 +489,7 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     final pages = [
       HomeScreenWidget(
         controller: controller,
+        depthController: depthController,
         parameterBox: parameterBox,
         depthParameterBox: depthParameterBox,
         currentWell: widget.wellActive,

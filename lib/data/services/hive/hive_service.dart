@@ -18,6 +18,10 @@ class HiveService {
 
   static final ApiClient _apiClient = ApiClient();
 
+  static Future<String> _getUserId() async {
+    return await ClientIdService.getPersistentClientId();
+  }
+
   static Future<void> initializeHive() async {
         final appDocumentDir = await getApplicationDocumentsDirectory();
         Hive
@@ -25,44 +29,47 @@ class HiveService {
           ..registerAdapters();
     }
 
-      static Future<Box<ParameterItem>> openParameterBox() async {
-        return await Hive.openBox<ParameterItem>(_userParameters);
-      }
+  static Future<Box<ParameterItem>> openParameterBox() async {
+    return await Hive.openBox<ParameterItem>(_userParameters);
+  }
 
-      static Future<Box<ParameterItem>> openDepthParameterBox() async {
-        return await Hive.openBox<ParameterItem>(_userParametersDepth);
-      }
+  static Future<Box<ParameterItem>> openDepthParameterBox() async {
+    return await Hive.openBox<ParameterItem>(_userParametersDepth);
+  }
 
-      static Future<Box<ParameterNotificationSetting>> openParameterNotificationSettings() async {
-        return await Hive.openBox<ParameterNotificationSetting>(_parameterNotificationSettings);
-      }
+  static Future<Box<ParameterNotificationSetting>> openParameterNotificationSettings(
+      {required String userId}) async {
+    final userSpecificBoxName = '${_parameterNotificationSettings}_$userId';
+    return Hive.openBox<ParameterNotificationSetting>(userSpecificBoxName);
+  }
 
-      static String getParameterNotificationBoxName() {
-        return _parameterNotificationSettings;
-      }
+  static String getParameterNotificationBoxName() {
+    return _parameterNotificationSettings;
+  }
 
-      static Future<Box<WellActive>> openSavedWells() {
-        return Hive.openBox<WellActive>(_userWells);
-      }
+  static Future<Box<WellActive>> openSavedWells() {
+    return Hive.openBox<WellActive>(_userWells);
+  }
 
-      static Future<void> saveSelectedWell(WellActive well) async {
-        debugPrint("opening box");
-        final box = await openSavedWells();
-        debugPrint("done box");
-        await box.put(well.isApiToken, well);
-      }
+  static Future<void> saveSelectedWell(WellActive well) async {
+    debugPrint("opening box");
+    final box = await openSavedWells();
+    debugPrint("done box");
+    await box.put(well.isApiToken, well);
+  }
 
-      static Future<WellActive?> loadSavedWell(String token) async {
-        final box = await openSavedWells();
-        return box.get(token);
-      }
+  static Future<WellActive?> loadSavedWell(String token) async {
+    final box = await openSavedWells();
+    return box.get(token);
+  }
 
-      static String _getNotificationSettingKey(String wellApiToken, String parameterJsonKey) {
-        return "${wellApiToken}_$parameterJsonKey";
-      }
+  static String _getNotificationSettingKey(String wellApiToken, String parameterJsonKey) {
+    return "${wellApiToken}_$parameterJsonKey";
+  }
 
   static Future<void> saveNotificationSetting(ParameterNotificationSetting setting, {bool syncToServer = true}) async {
-    final box = await openParameterNotificationSettings();
+    final userId = await _getUserId();
+    final box = await openParameterNotificationSettings(userId: userId);
     final key = _getNotificationSettingKey(setting.wellApiToken, setting.parameterJsonKey);
 
     // Save to Hive first
@@ -76,7 +83,6 @@ class HiveService {
     }
 
     try {
-      String userId = await ClientIdService.getPersistentClientId();
       bool success = false;
       int? returnedServerId;
 
@@ -86,6 +92,7 @@ class HiveService {
         }
         returnedServerId = await _apiClient.createNotificationRule(
           wellApiToken: setting.wellApiToken,
+          wellName: setting.wellName,
           parameterJsonKey: setting.parameterJsonKey,
           parameterName: setting.parameterName,
           thresholdValue: setting.thresholdValue,
@@ -111,8 +118,8 @@ class HiveService {
         }
         success = await _apiClient.updateNotificationRule(
           serverRuleId: setting.serverId!,
-          // userId: userId, // Not in body of Pydantic schema for update, implied by rule
           wellApiToken: setting.wellApiToken,
+          wellName: setting.wellName,
           parameterJsonKey: setting.parameterJsonKey,
           parameterName: setting.parameterName,
           thresholdValue: setting.thresholdValue,
@@ -133,20 +140,20 @@ class HiveService {
     }
   }
 
-      static Future<ParameterNotificationSetting?> getNotificationSetting(String wellApiToken, String parameterJsonKey) async {
-        final box = await openParameterNotificationSettings();
-        final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
-        return box.get(key);
-      }
+  static Future<ParameterNotificationSetting?> getNotificationSetting(String wellApiToken, String parameterJsonKey) async {
+    final box = await openParameterNotificationSettings(userId: await _getUserId());
+    final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
+    return box.get(key);
+  }
 
-      static Future<List<ParameterNotificationSetting>> getEnabledSettingsForWell(String wellApiToken) async {
-        final box = await openParameterNotificationSettings();
-        // Since keys are composite, filter values. If many settings, consider well-specific boxes or indexing.
-        return box.values.where((s) => s.wellApiToken == wellApiToken && s.isEnabled).toList();
-      }
+  static Future<List<ParameterNotificationSetting>> getEnabledSettingsForWell(String wellApiToken) async {
+    final box = await openParameterNotificationSettings(userId: await _getUserId());
+    // Since keys are composite, filter values. If many settings, consider well-specific boxes or indexing.
+    return box.values.where((s) => s.wellApiToken == wellApiToken && s.isEnabled).toList();
+  }
 
   static Future<void> deleteNotificationSetting(String wellApiToken, String parameterJsonKey, {bool syncToServer = true}) async {
-    final box = await openParameterNotificationSettings();
+    final box = await openParameterNotificationSettings(userId: await _getUserId());
     final key = _getNotificationSettingKey(wellApiToken, parameterJsonKey);
 
     ParameterNotificationSetting? settingToDelete = box.get(key);
@@ -384,7 +391,7 @@ class HiveService {
             scaleEnd: 6000,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
-            trackType: 'depth_primary', // Example track type for depth
+            trackType: 'Primary', // Example track type for depth
             value: '0',
             apiName: 'Measured Depth', // Optional: API name if different
           ),
@@ -397,7 +404,7 @@ class HiveService {
             scaleEnd: 6000,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
-            trackType: 'depth_primary',
+            trackType: 'Primary',
             value: '0',
             apiName: 'True Vertical Depth',
           ),
@@ -410,7 +417,7 @@ class HiveService {
             scaleEnd: 200,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
-            trackType: 'depth_performance',
+            trackType: 'Performance',
             value: '0',
             apiName: 'Rate of Penetration Inst.',
           ),
@@ -423,7 +430,7 @@ class HiveService {
             scaleEnd: 100,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
-            trackType: 'depth_mechanical',
+            trackType: 'Mechanical',
             value: '0',
             apiName: 'Weight on Bit Avg.',
           ),
@@ -436,7 +443,7 @@ class HiveService {
             scaleEnd: 3,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
-            trackType: 'depth_mud',
+            trackType: 'Mud',
             value: '0',
             apiName: 'Equivalent Circulating Density',
           ),

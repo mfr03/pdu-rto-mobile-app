@@ -45,6 +45,10 @@ class _SingleChartState extends State<SingleChart>
       enable: true,
       activationMode: ActivationMode.singleTap,
       lineType: TrackballLineType.vertical,
+      tooltipDisplayMode: TrackballDisplayMode.values.last,
+      markerSettings: const TrackballMarkerSettings(
+        markerVisibility: TrackballVisibilityMode.hidden
+      ),
       builder: (BuildContext context, TrackballDetails trackballDetails) {
         final int? pointIndex = trackballDetails.pointIndex;
 
@@ -65,7 +69,7 @@ class _SingleChartState extends State<SingleChart>
         // Add the DateTime as a header.
         children.add(
           Padding(
-            padding: const EdgeInsets.only(bottom: 2.0),
+            padding: const EdgeInsets.only(bottom: 4.0),
             child: Text(
               formattedDateTime,
               style: const TextStyle(
@@ -92,7 +96,7 @@ class _SingleChartState extends State<SingleChart>
                   const SizedBox(width: 6),
                   Text(
                     '$seriesName: ${yValue.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
               ),

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/company.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
+import 'package:pdu_mobile_rto_app/generated/l10n.dart';
 import 'package:pdu_mobile_rto_app/main.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -80,7 +81,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
           if (success) {
 
             Fluttertoast.showToast(
-                msg: 'User added successfully!',
+                msg: S.of(context).userAddedSuccessfully,
                 toastLength: Toast.LENGTH_SHORT,
                 gravity: ToastGravity.BOTTOM,
                 timeInSecForIosWeb: 1,
@@ -98,7 +99,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
         if (mounted) {
 
           Fluttertoast.showToast(
-              msg: 'Failed to add user: ${e.toString().replaceFirst("Exception: ", "")}',
+              msg: S.of(context).failedToAddUserEtostringreplacefirstexception,
               toastLength: Toast.LENGTH_SHORT,
               gravity: ToastGravity.BOTTOM,
               timeInSecForIosWeb: 1,
@@ -116,7 +117,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
     } else if (_selectedCompany == null && !_isLoadingCompanies) {
 
       Fluttertoast.showToast(
-          msg: 'Please select a company.',
+          msg: S.of(context).pleaseSelectACompany,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
@@ -139,7 +140,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add New User', style: TextStyle(color: CColors.primaryColor)),
+      title: Text(S.of(context).addNewUser, style: TextStyle(color: CColors.primaryColor)),
       content: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.6, // Adjust as needed
@@ -152,9 +153,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text("Error fetching companies: $_companyFetchError", style: const TextStyle(color: Colors.red)),
+            Text(S.of(context).errorFetchingCompaniesCompanyfetcherror, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 10),
-            ElevatedButton(onPressed: _fetchCompanies, child: const Text("Retry"))
+            ElevatedButton(onPressed: _fetchCompanies, child: Text(S.of(context).retry))
           ],
         )
             : Form(
@@ -164,9 +165,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 DropdownButtonFormField<Company>(
-                  decoration: const InputDecoration(labelText: 'Company*', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: S.of(context).company, border: OutlineInputBorder()),
                   value: _selectedCompany,
-                  hint: const Text('Select Company'),
+                  hint: Text(S.of(context).selectCompany),
                   isExpanded: true,
                   items: _companies.map((Company company) {
                     return DropdownMenuItem<Company>(
@@ -179,15 +180,15 @@ class _AddUserDialogState extends State<AddUserDialog> {
                       _selectedCompany = newValue;
                     });
                   },
-                  validator: (value) => value == null ? 'Company is required' : null,
+                  validator: (value) => value == null ? S.of(context).companyIsRequired : null,
                 ),
                 const SizedBox(height: 15),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Name*', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: S.of(context).name, border: OutlineInputBorder()),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Name is required';
+                      return S.of(context).nameIsRequired;
                     }
                     return null;
                   },
@@ -195,21 +196,21 @@ class _AddUserDialogState extends State<AddUserDialog> {
                 const SizedBox(height: 15),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email*', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: S.of(context).email, border: OutlineInputBorder()),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Email is required';
+                      return S.of(context).emailIsRequired;
                     }
                     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value.trim())) {
-                      return 'Enter a valid email address';
+                      return S.of(context).enterAValidEmailAddress;
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 15),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Role*', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: S.of(context).role, border: OutlineInputBorder()),
                   value: _selectedRole,
                   items: _roles.map((String role) {
                     return DropdownMenuItem<String>(
@@ -222,19 +223,19 @@ class _AddUserDialogState extends State<AddUserDialog> {
                       _selectedRole = newValue;
                     });
                   },
-                  validator: (value) => value == null ? 'Role is required' : null,
+                  validator: (value) => value == null ? S.of(context).roleIsRequired : null,
                 ),
                 const SizedBox(height: 15),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'Password*', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: S.of(context).password, border: OutlineInputBorder()),
                   obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Password is required';
+                      return S.of(context).passwordIsRequired;
                     }
                     if (value.length < 6) { // Example: minimum length
-                      return 'Password must be at least 6 characters';
+                      return S.of(context).passwordMustBeAtLeast6Characters;
                     }
                     return null;
                   },
@@ -246,7 +247,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
       ),
       actions: <Widget>[
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(S.of(context).cancel),
           onPressed: () => Navigator.of(context).pop(),
         ),
         ElevatedButton(
@@ -254,7 +255,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
           onPressed: _isAddingUser ? null : _submitForm,
           child: _isAddingUser
               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Add User'),
+              : Text(S.of(context).addUser),
         ),
       ],
     );

@@ -1,8 +1,4 @@
-
-
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
-import 'package:intl/intl.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/depth_drilling_data.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
@@ -22,8 +18,15 @@ class DepthDrillingController extends GetxController {
   final Rx<double?> niceDepthAxisMin = Rx<double?>(null);
   final Rx<double?> niceDepthAxisMax = Rx<double?>(null);
 
-  final int displayedDataPoints = 12 * 15;
-  final int depthChartBlockSize = 15;
+
+  final Rx<double?> depthAxisMin = Rx<double?>(null);
+  final Rx<double?> depthAxisMax = Rx<double?>(null);
+
+  // These store the original config to calculate sections from.
+  double _originalDepthStart = 0.0;
+  double _originalDepthEnd = 1000.0; // Default fallback
+  double _sectionValue = 250.0;      // Default fallback
+
   var depthChartCurrentIndex = 0.obs;
 
   bool _depthFirstCall = true;
@@ -32,22 +35,7 @@ class DepthDrillingController extends GetxController {
   final Rx<SnackbarNotification?> transientNotification = Rx<SnackbarNotification?>(null);
 
   void updateDisplayedDepthChartData() {
-    if (depthData.isEmpty) {
-      displayedDataDepth.clear();
-      return;
-    }
-    // Ensure depthChartCurrentIndex is valid
-    if (depthChartCurrentIndex.value >= depthData.length) {
-      depthChartCurrentIndex.value = (depthData.length > displayedDataPoints) ? depthData.length - displayedDataPoints : 0;
-    }
-    if (depthChartCurrentIndex.value < 0) depthChartCurrentIndex.value = 0;
-
-    final int endIndex = depthChartCurrentIndex.value + displayedDataPoints;
-    if (endIndex > depthData.length) {
-      displayedDataDepth.assignAll(depthData.sublist(depthChartCurrentIndex.value));
-    } else {
-      displayedDataDepth.assignAll(depthData.sublist(depthChartCurrentIndex.value, endIndex));
-    }
+    displayedDataDepth.assignAll(depthData);
   }
 
   Map<String, double> calculateNiceAxisRange(double dataMin, double dataMax) {
@@ -104,6 +92,17 @@ class DepthDrillingController extends GetxController {
       return;
     }
 
+    final double minDepth = searchResult.map((d) => d.md).reduce(math.min);
+    final double maxDepth = searchResult.map((d) => d.md).reduce(math.max);
+
+    // 2. Calculate a "nice" rounded axis range using our existing helper.
+    final niceRange = calculateNiceAxisRange(minDepth, maxDepth);
+
+    // 3. Update the controller's state for the chart's axis.
+    depthAxisMin.value = niceRange['min'];
+    depthAxisMax.value = niceRange['max'];
+
+    // 4. Assign the new data to be displayed.
     depthData.assignAll(searchResult);
 
     depthData.refresh();
@@ -119,58 +118,39 @@ class DepthDrillingController extends GetxController {
 
   }
 
-  Future<void> initializeDepthData({
-    required WellActive wellActive,
-  }) async
-  {
+  Future<void> initializeDepthData({required WellActive wellActive}) async {
     if (depthData.isNotEmpty) {
       updateDisplayedDepthChartData();
-      _depthFirstCall = false;
       return;
     }
 
+    isHomeScreenLoading.value = true;
     final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
-    final ts = wellActive.timeStart;
-    final te = wellActive.timeEnd;
-    final ds = cfg.start;
-    final de = cfg.end;
 
-    print("DEBUG: Fetching depth data for well: ${wellActive.wellName}, Token: ${wellActive.isApiToken}");
-    print("DEBUG: Time Range: Start = $ts, End = $te");
-    print("DEBUG: Depth Range: Start = $ds, End = $de");
-    print("DEBUG: First Call: $_depthFirstCall");
+    _originalDepthStart = cfg.start;
+    _originalDepthEnd = cfg.end;
+    _sectionValue = (_originalDepthEnd - _originalDepthStart) / 4;
+    if (_sectionValue <= 0) _sectionValue = 250.0;
 
+    depthAxisMin.value = _originalDepthStart;
+    depthAxisMax.value = _originalDepthEnd;
 
     final data = await api.fetchDepthBasedData(
-      token: wellActive.isApiToken,
-      timeStart: ts, timeEnd: te,
-      depthStart: cfg.start, depthEnd: cfg.end,
-      first: _depthFirstCall,
-    );
-
+        token: wellActive.isApiToken,
+        timeStart: wellActive.timeStart,
+        timeEnd: wellActive.timeEnd,
+        depthStart: cfg.start,
+        depthEnd: cfg.end,
+        first: _depthFirstCall);
 
     if (data.isNotEmpty) {
       _depthFirstCall = false;
       depthData.assignAll(data);
-
-      final double minDepth = data.map((d) => d.md).reduce(math.min);
-      final double maxDepth = data.map((d) => d.md).reduce(math.max);
-
-      // 2. Calculate the "nice" range using our helper
-      final niceRange = calculateNiceAxisRange(minDepth, maxDepth);
-
-      // 3. Update the state variables
-      niceDepthAxisMin.value = niceRange['min'];
-      niceDepthAxisMax.value = niceRange['max'];
-
-
-
-
     } else {
       _depthFirstCall = false;
     }
-    depthChartCurrentIndex.value = 0;
     updateDisplayedDepthChartData();
+    isHomeScreenLoading.value = false;
   }
 
   Future<void> resetDepthChart({required WellActive wellActive}) async {
@@ -181,23 +161,15 @@ class DepthDrillingController extends GetxController {
   }
 
   Future<bool> fastForwardDepthChart({required WellActive wellActive}) async {
-    // 1. First, try to traverse locally
-    final nextIndex = depthChartCurrentIndex.value + depthChartBlockSize;
-    if (nextIndex < depthData.length) {
-      depthChartCurrentIndex.value = nextIndex;
-      updateDisplayedDepthChartData();
-      return true;
-    }
+    isHomeScreenLoading.value = true;
 
-    // 2. If at the edge, fetch new data from the API
-    if (depthData.isEmpty) return false;
-
-    final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
+    final traversalMinutes = await ChartSettingsService.loadDepthTraversalUnit();
     final amount = Duration(minutes: traversalMinutes);
-    final lastTime = depthData.last.dateTime;
+    // Use the last known time or now if the list is empty
+    final lastTime = depthData.isNotEmpty ? depthData.last.dateTime : DateTime.now();
     final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
 
-    // Define the time range for the request
+    // Fetch the next chunk of data based on time
     final timeStart = CFormatter.formatDateTime(lastTime);
     final timeEnd = CFormatter.formatDateTime(lastTime.add(amount));
 
@@ -205,89 +177,73 @@ class DepthDrillingController extends GetxController {
         token: wellActive.isApiToken,
         timeStart: timeStart,
         timeEnd: timeEnd,
-        depthStart: cfg.start,
+        depthStart: cfg.start, // Always search the full original depth range
         depthEnd: cfg.end,
         first: false);
 
-    if (newData.isEmpty) {
+    if (newData.isNotEmpty) {
+      // 1. Add the new data to our master list
+      depthData.addAll(newData);
+
+      // 2. Find the max depth in the NEW data chunk. This is efficient.
+      final double maxInNewData = newData.map((d) => d.md).reduce(math.max);
+
+      // 3. Apply the new rule: if the new max is outside the current view,
+      //    jump the axis max to the new data point and add padding.
+      if (maxInNewData > depthAxisMax.value!) {
+        depthAxisMax.value = maxInNewData + _sectionValue;
+      }
+
+      transientNotification.value = SnackbarNotification(
+          title: 'Data Successfully Loaded',
+          message: ''
+      );
+
+      // 4. Update the UI
+      updateDisplayedDepthChartData();
+
+    } else {
       transientNotification.value = SnackbarNotification(
         title: 'All Data Loaded',
         message: 'You have reached the latest available data.',
       );
-      return false;
     }
 
-    if (depthData.any((p) => p.dateTime.millisecondsSinceEpoch == newData.first.dateTime.millisecondsSinceEpoch)) {
-      final startTimeString = DateFormat('HH:mm:ss').format(lastTime);
-      final endTimeString = DateFormat('HH:mm:ss').format(lastTime.add(amount));
-      transientNotification.value = SnackbarNotification(
-        title: 'Data Loaded',
-        message: 'Data for range $startTimeString - $endTimeString is already present.',
-      );
-      return false;
-    }
-
-    // 3. Add new data and move the view to the new end
-    depthData.addAll(newData);
-    depthChartCurrentIndex.value = (depthData.length > displayedDataPoints)
-        ? depthData.length - displayedDataPoints
-        : 0;
-    updateDisplayedDepthChartData();
-    return true;
+    isHomeScreenLoading.value = false;
+    return newData.isNotEmpty;
   }
 
   Future<bool> moveBackwardDepthChart({required WellActive wellActive}) async {
-    // 1. First, try to traverse locally
-    if (depthChartCurrentIndex.value > 0) {
-      depthChartCurrentIndex.value = math.max(0, depthChartCurrentIndex.value - depthChartBlockSize);
-      updateDisplayedDepthChartData();
-      return true;
-    }
-
-    // 2. If at the start, fetch older data from the API
     if (depthData.isEmpty) return false;
+    isHomeScreenLoading.value = true;
 
-    final traversalMinutes = await ChartSettingsService.loadTraversalUnit();
+    final traversalMinutes = await ChartSettingsService.loadDepthTraversalUnit();
     final amount = Duration(minutes: traversalMinutes);
     final firstTime = depthData.first.dateTime;
     final cfg = await ChartDepthService.loadConfig(wellActive.isApiToken);
 
-    // Define the time range for the request
     final timeStart = CFormatter.formatDateTime(firstTime.subtract(amount));
     final timeEnd = CFormatter.formatDateTime(firstTime);
 
     final olderData = await api.fetchDepthBasedData(
         token: wellActive.isApiToken,
-        timeStart: timeStart,
-        timeEnd: timeEnd,
-        depthStart: cfg.start,
-        depthEnd: cfg.end,
+        timeStart: timeStart, timeEnd: timeEnd,
+        depthStart: cfg.start, depthEnd: cfg.end,
         first: false);
 
-    if (olderData.isEmpty) {
-      transientNotification.value = SnackbarNotification(
-        title: 'All Data Loaded',
-        message: 'You have reached the beginning of the available data.',
-      );
-      return false;
-    }
+    if (olderData.isNotEmpty) {
+      depthData.insertAll(0, olderData); // Prepend the older data
+      updateDisplayedDepthChartData();
 
-    if (depthData.any((p) => p.dateTime.millisecondsSinceEpoch == olderData.last.dateTime.millisecondsSinceEpoch)) {
-      final startTimeString = DateFormat('HH:mm:ss').format(firstTime.subtract(amount));
-      final endTimeString = DateFormat('HH:mm:ss').format(firstTime);
+    } else {
       transientNotification.value = SnackbarNotification(
-        title: 'Data Loaded',
-        message: 'Data for range $startTimeString - $endTimeString is already present.',
+        title: 'All Data Loaded', message: 'You have reached the beginning of the available data.',
       );
-      return false;
     }
-
-    // 3. Prepend new data and keep the view at the new beginning
-    depthData.insertAll(0, olderData);
-    depthChartCurrentIndex.value = 0;
-    updateDisplayedDepthChartData();
-    return true;
+    isHomeScreenLoading.value = false;
+    return olderData.isNotEmpty;
   }
+
 
   void storeSeriesController(String key, ChartSeriesController ctl) {
     depthSeriesControllers[key] = ctl;

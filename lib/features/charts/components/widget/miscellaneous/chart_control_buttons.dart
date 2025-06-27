@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
+import 'package:pdu_mobile_rto_app/data/services/shared_preferences/chart_settings_service.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/search_by_time_dialog.dart';
 import 'package:pdu_mobile_rto_app/features/charts/components/widget/dialog/set_depth_dialog.dart';
 
@@ -47,6 +48,22 @@ class ChartControlButtons extends StatefulWidget {
 class _ChartControlButtonsState extends State<ChartControlButtons> {
 
   bool _areControlsVisible = true;
+
+  Future<void> _showTraversalDialog() async {
+    final currentValue = widget.mode == 'time'
+        ? await ChartSettingsService.loadTimeTraversalUnit()
+        : await ChartSettingsService.loadDepthTraversalUnit();
+
+    if (mounted) {
+      showDialog(
+        context: widget.parentContext,
+        builder: (_) => SetTraversalUnitDialog(
+          mode: widget.mode,
+          currentValue: currentValue,
+        ),
+      );
+    }
+  }
 
   void _showTrackSettingsDialog(String trackType) async {
     showDialog(
@@ -234,31 +251,26 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                         : null,
                   ),
                   const SizedBox(height:4 ),
-                  GestureDetector(
-                    onLongPress: () {
-                      showDialog(
-                        context: widget.parentContext,
-                        builder: (_) => const SetTraversalUnitDialog(),
-                      );
-                    },
-                    child: IconButton(
-                      icon: const Icon(Icons.fast_rewind),
-                      color: CColors.primaryColor,
-                      onPressed: () async {
-                        widget.onFieldChanged("_isSearching", true);
-                        if (widget.mode == 'time' && widget.drillingController != null) {
-                          await widget.drillingController!.moveBackwardTimeChart(
-                              wellActive: widget.wellActive);
-                        } else {
-                          if(widget.depthDrillingController != null) {
-                            await widget.depthDrillingController!.moveBackwardDepthChart(
-                              wellActive: widget.wellActive,);
+
+                  if (widget.mode == 'time')
+                    GestureDetector(
+                      onLongPress: _showTraversalDialog, // Assuming you have this helper
+                      child: IconButton(
+                        icon: const Icon(Icons.fast_rewind),
+                        color: CColors.primaryColor,
+                        onPressed: () async {
+                          widget.onFieldChanged("_isSearching", true);
+                          if (widget.controller != null) {
+                            await widget.drillingController!
+                                .moveBackwardTimeChart(
+                                wellActive: widget.wellActive
+                            );
                           }
-                        }
-                        widget.onFieldChanged("_isSearching", false);
-                      },
+                          widget.onFieldChanged("_isSearching", false);
+                        },
+                      ),
                     ),
-                  ),
+
                   const SizedBox(height: 4),
                   GestureDetector(
                     onLongPress: widget.mode == 'depth'
@@ -285,7 +297,7 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                       onPressed: () async {
                         widget.onFieldChanged("_isSearching", true);
                         if (widget.mode == 'time' && widget.drillingController != null) {
-                          widget.drillingController!.resetHistoricalTimeData();
+                          widget.drillingController!.initializeLiveTimeData(wellActive: widget.wellActive);
                         } else {
                           if(widget.depthDrillingController != null) {
                             await widget.depthDrillingController!
@@ -299,12 +311,7 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
                   ),
                   const SizedBox(height: 4),
                   GestureDetector(
-                    onLongPress: () {
-                      showDialog(
-                        context: widget.parentContext,
-                        builder: (_) => const SetTraversalUnitDialog(),
-                      );
-                    },
+                    onLongPress: _showTraversalDialog,
                     child: IconButton(
                       icon: const Icon(Icons.fast_forward),
                       color: CColors.primaryColor,

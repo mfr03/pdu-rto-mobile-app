@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart';
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/features/home/components/widget/home_banner_card.dart';
 import 'package:pdu_mobile_rto_app/features/home/components/widget/home_sensor_view.dart';
@@ -12,12 +13,14 @@ class HomeScreenWidget extends StatelessWidget {
   const HomeScreenWidget({
     super.key,
     required this.controller,
+    required this.depthController,
     required this.parameterBox,
     required this.depthParameterBox,
     required this.currentWell,
   });
 
   final DrillingController controller;
+  final DepthDrillingController depthController;
   final Box<ParameterItem>? parameterBox;
   final Box<ParameterItem>? depthParameterBox;
   final WellActive currentWell;
@@ -103,12 +106,14 @@ class HomeScreenWidget extends StatelessWidget {
             const SizedBox(height: 16),
             HomeSensorView(
               controller: controller,
+              depthController: depthController,
               timeParameterBox: parameterBox!,
               depthParameterBox: depthParameterBox!,
               // --- THIS IS THE FIX ---
               // The 'isWellLive' status now comes directly from the controller's state.
               isWellLive: controller.isTimeChartLive.value,
               currentWellApiToken: currentWell.isApiToken,
+              currentWellName: currentWell.wellName,
             ),
             const SizedBox(height: 80),
           ],

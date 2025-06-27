@@ -44,6 +44,10 @@ class _SingleDepthChartState extends State<SingleDepthChart>
       enable: true,
       activationMode: ActivationMode.longPress,
       lineType: TrackballLineType.vertical,
+      tooltipDisplayMode: TrackballDisplayMode.groupAllPoints,
+      markerSettings: const TrackballMarkerSettings(
+        markerVisibility: TrackballVisibilityMode.hidden
+      ),
       builder: (BuildContext context, TrackballDetails trackballDetails) {
         final int? pointIndex = trackballDetails.pointIndex;
 
@@ -84,11 +88,11 @@ class _SingleDepthChartState extends State<SingleDepthChart>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Circle(color, 8),
-                  const SizedBox(width: 8),
+                  Circle(color, 6),
+                  const SizedBox(width: 6),
                   Text(
                     '$seriesName: ${yValue.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
               ),
@@ -199,8 +203,8 @@ class _SingleDepthChartState extends State<SingleDepthChart>
         // --- THIS IS THE FIX ---
         // Bind the axis range to our new reactive variables in the controller.
         // The Obx wrapper will handle updates automatically.
-        minimum: widget.controller.niceDepthAxisMin.value,
-        maximum: widget.controller.niceDepthAxisMax.value,
+        minimum: widget.controller.depthAxisMin.value,
+        maximum: widget.controller.depthAxisMax.value,
         // --- END FIX ---
       ),
       primaryYAxis: primaryAxis,

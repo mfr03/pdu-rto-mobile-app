@@ -3,7 +3,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/common/screen/initialization_error_screen.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
@@ -18,6 +17,9 @@ import 'package:pdu_mobile_rto_app/utils/theme/theme.dart';
 import 'package:pdu_mobile_rto_app/core/di/service_locator.dart';
 import 'package:pdu_mobile_rto_app/firebase_options.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kDebugMode;
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:pdu_mobile_rto_app/generated/l10n.dart';
+
 
 ValueNotifier<InitializationStatus> initializationNotifier = ValueNotifier(InitializationStatus.pending);
 String? globalInitializationError;
@@ -142,7 +144,7 @@ class MainApp extends StatelessWidget {
     );
 
     return MaterialApp(
-        title: 'PDU Mobile RTO',
+        title: S.of(context).pduMobileRto,
         theme: CAppTheme.lightTheme,
         darkTheme: CAppTheme.darkTheme,
         themeMode: ThemeMode.system,
@@ -157,7 +159,16 @@ class MainApp extends StatelessWidget {
               }
               return initialScreen;
             }
-        )
+        ),
+      localizationsDelegates: const [
+        S.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en')
+      ],
     );
   }
 }

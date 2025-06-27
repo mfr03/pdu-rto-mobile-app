@@ -3,24 +3,29 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:pdu_mobile_rto_app/features/charts/controller/chart_drilling_controller.dart'; // Import Controller
+import 'package:pdu_mobile_rto_app/features/charts/controller/depth_chart_drilling_controller.dart';
 import 'package:pdu_mobile_rto_app/features/charts/model/parameter_item.dart';
 import 'package:pdu_mobile_rto_app/features/notification/components/dialog/set_threshold_dialog.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 
 class HomeSensorView extends StatefulWidget {
   final DrillingController controller;
+  final DepthDrillingController depthController;
   final Box<ParameterItem>? timeParameterBox;
   final Box<ParameterItem>? depthParameterBox;
   final bool isWellLive;
   final String currentWellApiToken;
+  final String currentWellName;
 
   const HomeSensorView({
     Key? key,
     required this.controller,
+    required this.depthController,
     required this.timeParameterBox,
     required this.depthParameterBox,
     required this.isWellLive,
-    required this.currentWellApiToken
+    required this.currentWellApiToken,
+    required this.currentWellName
   }) : super(key: key);
 
   @override
@@ -128,10 +133,11 @@ class _HomeSensorViewState extends State<HomeSensorView> {
 
   }
 
-  void _showSetThresholdDialog(BuildContext context, ParameterItem paramItem, String currentWellApiToken) {
+  void _showSetThresholdDialog(BuildContext context, ParameterItem paramItem, String currentWellApiToken, String currentWellName) {
     showDialog(context: context, builder: (_) => SetThresholdDialog(
       parameterItem: paramItem,
-      wellApiToken: currentWellApiToken
+      wellApiToken: currentWellApiToken,
+      wellName: currentWellName,
     ));
   }
 
@@ -171,8 +177,8 @@ class _HomeSensorViewState extends State<HomeSensorView> {
                   currentParamBox = widget.timeParameterBox;
                   noDataMessage = 'No time-based sensor data available or parameters not configured.';
                 } else { // Depth Data
-                  currentLatestData = widget.controller.displayedDataDepth.isNotEmpty
-                      ? widget.controller.displayedDataDepth.last
+                  currentLatestData = widget.depthController.displayedDataDepth.isNotEmpty
+                      ? widget.depthController.displayedDataDepth.last
                       : null;
                   currentParamBox = widget.depthParameterBox;
                   noDataMessage = 'No depth-based sensor data available or parameters not configured.';
@@ -224,7 +230,7 @@ class _HomeSensorViewState extends State<HomeSensorView> {
                                     ),
                                   onTap: () {
                                     if(widget.currentWellApiToken != null && paramItem != null) {
-                                      _showSetThresholdDialog(context, paramItem, widget.currentWellApiToken);
+                                      _showSetThresholdDialog(context, paramItem, widget.currentWellApiToken, widget.currentWellName);
                                     }
                                   },
                                 );

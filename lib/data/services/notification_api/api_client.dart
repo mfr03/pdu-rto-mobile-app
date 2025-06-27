@@ -130,6 +130,7 @@ class ApiClient {
   // --- Notification Settings CRUD ---
   Future<int?> createNotificationRule({
     required String wellApiToken,
+    required String wellName,
     required String parameterJsonKey,
     required String parameterName,
     required double thresholdValue,
@@ -140,6 +141,7 @@ class ApiClient {
     try {
       final response = await _post('notifications/rules', {
         'well_api_token': wellApiToken,
+        'well_name': wellName,
         'parameter_json_key': parameterJsonKey,
         'parameter_name': parameterName,
         'threshold_value': thresholdValue,
@@ -167,6 +169,7 @@ class ApiClient {
   Future<bool> updateNotificationRule({
     required int serverRuleId,
     required String wellApiToken,
+    required String wellName,
     required String parameterJsonKey,
     required String parameterName,
     required double thresholdValue,
@@ -177,6 +180,7 @@ class ApiClient {
     try {
       final response = await _put('notifications/rules/$serverRuleId', {
         'well_api_token': wellApiToken,
+        'well_name': wellName,
         'parameter_json_key': parameterJsonKey,
         'parameter_name': parameterName,
         'threshold_value': thresholdValue,

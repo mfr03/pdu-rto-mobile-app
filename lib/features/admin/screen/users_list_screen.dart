@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/app_user_model.dart';
 import 'package:pdu_mobile_rto_app/features/admin/widgets/add_user_dialog.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
+import 'package:pdu_mobile_rto_app/generated/l10n.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
 
@@ -64,7 +65,7 @@ class _UsersListScreenState extends State<UsersListScreen> {
           children: [
             Text(user.email),
             const SizedBox(height: 2),
-            Text('Role: ${user.role}', style: Theme.of(context).textTheme.bodySmall),
+            Text(S.of(context).roleUserrole, style: Theme.of(context).textTheme.bodySmall),
             // Text('Company ID: ${user.companyId}', style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
@@ -83,13 +84,13 @@ class _UsersListScreenState extends State<UsersListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Application Users', style: TextStyle(color: Colors.white)),
+        title: Text(S.of(context).applicationUsers, style: TextStyle(color: Colors.white)),
         backgroundColor: CColors.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh Users',
+            tooltip: S.of(context).refreshUsers,
             onPressed: _refreshUsers,
           ),
         ],
@@ -108,14 +109,14 @@ class _UsersListScreenState extends State<UsersListScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Error: ${snapshot.error.toString().replaceFirst("Exception: ", "")}',
+                      S.of(context).errorSnapshoterrortostringreplacefirstexception,
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.redAccent, fontSize: 16),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.refresh, color: Colors.white),
-                      label: const Text('Retry', style: TextStyle(color: Colors.white)),
+                      label: Text(S.of(context).retry, style: TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(backgroundColor: CColors.primaryColor),
                       onPressed: _refreshUsers,
                     )
@@ -129,11 +130,11 @@ class _UsersListScreenState extends State<UsersListScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('No users found.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                   Text(S.of(context).noUsersFound, style: TextStyle(fontSize: 16, color: Colors.grey)),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.refresh, color: Colors.white),
-                    label: const Text('Refresh', style: TextStyle(color: Colors.white)),
+                    label: Text(S.of(context).refresh, style: TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(backgroundColor: CColors.primaryColor),
                     onPressed: _refreshUsers,
                   )
@@ -155,7 +156,7 @@ class _UsersListScreenState extends State<UsersListScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: _openAddUserDialog,
         backgroundColor: CColors.primaryColor,
-        tooltip: 'Add New User',
+        tooltip: S.of(context).addNewUser,
         child: const Icon(Icons.add, color: Colors.white),
 
       ),
