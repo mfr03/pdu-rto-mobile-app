@@ -62,12 +62,6 @@ class _DepthConfigDialogState extends State<DepthConfigDialog> {
                   : null,
             ),
             const SizedBox(height: 8),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text("Don't show again for this well"),
-              value: _doNotShow,
-              onChanged: (b) => setState(() => _doNotShow = b ?? false),
-            ),
           ],
         ),
       ),

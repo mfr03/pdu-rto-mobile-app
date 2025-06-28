@@ -1,10 +1,8 @@
 // lib/features/notifications/services/local_notification_service.dart
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
 class LocalNotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =

@@ -1,5 +1,4 @@
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 
 import 'model/well_active.dart';
 import 'pdu_api.dart';

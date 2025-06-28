@@ -1,11 +1,9 @@
 // lib/features/admin/widgets/add_user_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/company.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
 import 'package:pdu_mobile_rto_app/generated/l10n.dart';
-import 'package:pdu_mobile_rto_app/main.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 

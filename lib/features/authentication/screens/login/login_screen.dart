@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
 import 'package:pdu_mobile_rto_app/features/admin/screen/admin_screen.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
@@ -9,8 +8,7 @@ import 'package:pdu_mobile_rto_app/generated/l10n.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
 import 'package:pdu_mobile_rto_app/utils/theme/text_theme.dart';
-// Import your navigation utility or the screen you want to navigate to after login
-// For example: import 'package:pdu_mobile_rto_app/features/wells_selections/wells_active.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -96,23 +94,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/login_background.png', // TODO: Replace with your actual background image path
-              fit: BoxFit.cover,
-              // As a fallback, if the image is not available or to match the design's dark overlay:
-              errorBuilder: (context, error, stackTrace) {
-                return Container(color: CColors.tertiaryColor.withOpacity(0.85)); // Dark background
-              },
-            ),
-          ),
-          // Optional: Dark overlay to make text more readable if background is too light
-          // Positioned.fill(
-          //   child: Container(
-          //     color: Colors.black.withOpacity(0.3),
-          //   ),
-          // ),
+
+          Container(color: CColors.tertiaryColor.withOpacity(0.85)),
 
           Center(
             child: SingleChildScrollView(
@@ -131,10 +114,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          // Logo
-                          // TODO: Replace with your actual logo widget/image
+
                           Image.asset(
-                            'assets/images/pdu_logo.png', // Replace with your PDU logo asset path
+                            'assets/images/logo.png',
                             height: 60, // Adjust as needed
                             errorBuilder: (context, error, stackTrace) {
                               // Fallback logo like in the design image

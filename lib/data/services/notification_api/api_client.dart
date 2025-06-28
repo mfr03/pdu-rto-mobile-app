@@ -1,30 +1,23 @@
 // codes/lib/data/services/notification_api/api_client.dart
 import 'dart:convert';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kDebugMode;
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
 
 class ApiClient {
-  static const String _localPcIp = "70.153.8.55"; // Replace with your VM's actual IP if different
-  static const String _devPort = "8000";
+  static const String _localPcIp = "103.150.93.56"; // Replace with your VM's actual IP if different
+  static const String _devPort = "8003";
   final AuthService _authService = Get.find<AuthService>();
 
 
   static String get baseUrl {
-    if (kDebugMode) {
-      return "http://$_localPcIp:$_devPort/api/v1";
-    } else {
-      return "YOUR_PRODUCTION_BACKEND_URL/api/v1"; // Replace with your deployed URL
-    }
+    return "http://$_localPcIp:$_devPort/api/v1";
   }
 
   Future<Map<String, String>> _getAuthHeaders() async {
     String? token = await _authService.getToken();
     if (token == null) {
-      // This case should ideally not happen if calls are made after login.
-      // You might want to throw an error or trigger a logout/re-login.
       print("Error: Auth token is null. Cannot make authenticated request.");
       return {"Content-Type": "application/json"};
     }

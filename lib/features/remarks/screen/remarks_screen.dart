@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/remark_item.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';

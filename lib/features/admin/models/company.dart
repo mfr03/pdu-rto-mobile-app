@@ -20,7 +20,6 @@ class Company {
     );
   }
 
-  // Optional: For use in DropdownButton items if you want to customize display
   @override
   String toString() {
     return name; // Default display in dropdown will be the company name

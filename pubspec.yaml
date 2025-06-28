@@ -42,9 +42,6 @@ dependencies:
   get: ^4.7.2
   get_storage: ^2.1.1
 
-  #dependency injection
-  get_it: ^8.0.3
-
   #noticication
   flutter_local_notifications: ^17.1.0
   flutter_background_service: ^5.1.0
@@ -70,6 +67,8 @@ flutter:
   assets:
     - assets/images/image_home.png
     - assets/images/bit_depth.svg
+    - assets/images/logo.png
+    - assets/images/login_bg.png
 
   generate: true
 
