@@ -1,7 +1,5 @@
-// codes/lib/features/wells_selections/wells_active.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/well_active.dart';
@@ -11,7 +9,7 @@ import 'package:pdu_mobile_rto_app/features/charts/screen/chart_drilling_screen.
 import 'package:pdu_mobile_rto_app/main.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
 import 'package:pdu_mobile_rto_app/utils/constants/sizes.dart';
-import 'package:pdu_mobile_rto_app/utils/well_utils.dart'; // Ensure this import is present
+import 'package:pdu_mobile_rto_app/utils/well_utils.dart';
 
 class WellsActiveScreen extends StatefulWidget {
   const WellsActiveScreen({super.key});
@@ -20,24 +18,56 @@ class WellsActiveScreen extends StatefulWidget {
   State<WellsActiveScreen> createState() => _WellsActiveScreenState();
 }
 
-class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindingObserver {
+class _WellsActiveScreenState extends State<WellsActiveScreen>
+    with WidgetsBindingObserver {
   late Future<List<WellActive>> _futureWells;
   final PduApi _api = Get.find<PduApi>();
   final AuthService _authService = Get.find<AuthService>();
 
+  // --- NEW: State variable to hold the user's role ---
+  String? _userRole;
 
   @override
   void initState() {
     super.initState();
-    _futureWells = _api.fetchActiveWells();
-
+    _futureWells = _fetchFilteredWells();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  // --- NEW: Logout method to clear session and navigate to login ---
+  Future<void> _logout() async {
+    await _authService.logout();
+    // Use the global navigator key to navigate without a BuildContext
+    final navigator = navigatorKey.currentState;
+    if (navigator != null) {
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (Route<dynamic> route) => false,
+      );
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // --- ALTERATION: This method now also fetches and sets the user's role ---
+  Future<List<WellActive>> _fetchFilteredWells() async {
+    final role = await _authService.getRole();
+    final company = await _authService.getCompanyName();
+
+    if (mounted) {
+      setState(() {
+        _userRole = role;
+      });
+    }
+
+    return _api.fetchActiveWells(
+      userRole: role,
+      userCompany: company,
+    );
   }
 
   @override
@@ -50,22 +80,12 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
   }
 
   Future<void> _checkTokenAndNavigate() async {
+    // This check is for token expiry, different from manual logout
     final bool tokenIsExpired = await _authService.isTokenExpired();
-
     if (tokenIsExpired) {
-      print("Token is expired. Navigating to Login Screen.");
-      await _authService.logout();
-
-      final navigator = navigatorKey.currentState;
-      if (navigator != null) {
-        navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (Route<dynamic> route) => false,
-        );
-      }
+      await _logout(); // Reuse the logout logic
     }
   }
-
 
   Widget _buildLoadingIndicator() {
     return const Center(
@@ -107,7 +127,7 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
               style: ElevatedButton.styleFrom(backgroundColor: CColors.primaryColor),
               onPressed: () {
                 setState(() {
-                  _futureWells = _api.fetchActiveWells();
+                  _futureWells = _fetchFilteredWells();
                 });
               },
             )
@@ -118,7 +138,6 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
   }
 
   Widget _buildWellCard(BuildContext context, WellActive well) {
-    // Determine if the well is completed using the updated utility function
     final bool isCompleted = isWellCompleted(wellActive: well);
     final NavigatorState navigator = Navigator.of(context);
 
@@ -178,7 +197,6 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    // Updated to display "Status: " and use well.wellStatus
                     Text(
                       "Status: ${well.wellStatus}",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -223,6 +241,20 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      // --- FIX: Conditionally build the AppBar based on user role ---
+      appBar: _userRole?.toLowerCase() == 'user'
+          ? AppBar(
+        title: const Text('Well Selections'),
+        automaticallyImplyLeading: false, // Don't show a back button
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: _logout, // Call the new logout method
+          ),
+        ],
+      )
+          : null, // No AppBar for admins
       body: SafeArea(
         child: FutureBuilder<List<WellActive>>(
           future: _futureWells,
@@ -235,19 +267,12 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
             }
             if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final wells = snapshot.data!;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      itemCount: wells.length,
-                      itemBuilder: (context, index) {
-                        return _buildWellCard(context, wells[index]);
-                      },
-                    ),
-                  ),
-                ],
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                itemCount: wells.length,
+                itemBuilder: (context, index) {
+                  return _buildWellCard(context, wells[index]);
+                },
               );
             }
             return Center(
@@ -259,13 +284,13 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
                     Icon(Icons.layers_clear_outlined, size: 60, color: Colors.grey[400]),
                     const SizedBox(height: 16),
                     Text(
-                      "No Active Wells Found",
+                      "No Wells Found",
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.grey[700]),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "There are currently no active wells to display. Please check back later or try refreshing.",
+                      "There are no wells available for your account. Please check back later or try refreshing.",
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
                     ),
@@ -276,7 +301,7 @@ class _WellsActiveScreenState extends State<WellsActiveScreen> with WidgetsBindi
                       style: ElevatedButton.styleFrom(backgroundColor: CColors.primaryColor),
                       onPressed: () {
                         setState(() {
-                          _futureWells = _api.fetchActiveWells();
+                          _futureWells = _fetchFilteredWells();
                         });
                       },
                     )

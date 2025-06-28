@@ -448,4 +448,35 @@ class AuthService {
       rethrow; // Rethrow to be caught by the UI
     }
   }
+
+  Future<String?> getCompanyName() async {
+    try {
+      // Get the stored company ID for the current user
+      final companyId = await getCompanyId();
+      if (companyId == null) {
+        if (kDebugMode) print("AuthService: No companyId found for user.");
+        return null;
+      }
+
+      // Fetch the list of all companies
+      final List<Company> allCompanies = await getCompanies();
+
+      // Find the company that matches the user's companyId
+      final userCompany = allCompanies.firstWhere(
+            (company) => company.id == companyId,
+        orElse: () => Company(id: '', name: 'Unknown', address: ''), // Fallback
+      );
+
+      if (kDebugMode) {
+        print("AuthService: Found company name '${userCompany.name}' for ID '$companyId'");
+      }
+      return userCompany.name;
+
+    } catch (e) {
+      if (kDebugMode) {
+        print("AuthService: Error fetching company name: $e");
+      }
+      return null;
+    }
+  }
 }

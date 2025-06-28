@@ -35,7 +35,7 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
   String? _trackType;
   String? _displayName;
   String? _unit;
-  Color _color = Colors.blue;
+  Color _color = Colors.blue; // A default color is already set
   final _startCtrl = TextEditingController();
   final _endCtrl = TextEditingController();
 
@@ -69,17 +69,15 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
   Future<void> _loadVariables() async {
     final PduApi api = Get.find<PduApi>();
     try {
-      // Fetch both sets of data concurrently for better performance.
       final results = await Future.wait([
         api.fetchAvailableVariables(),
-        api.fetchUnits(), // Re-add the call to fetch units
+        api.fetchUnits(),
       ]);
 
-      // Ensure the widget is still mounted before setting state.
       if (mounted) {
         setState(() {
           _allVariables = results[0] as List<DrillVariable>;
-          _availableUnits = results[1] as List<Unit>; // Populate the units list
+          _availableUnits = results[1] as List<Unit>;
           _isLoading = false;
         });
       }
@@ -101,7 +99,6 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
         if (_isDepthSelected && variable.kdRecord == '02') return true;
         return false;
       }).toList();
-      // Reset selection if it's no longer in the filtered list
       if (_selectedVar != null && !_filteredVariables.contains(_selectedVar)) {
         _selectedVar = null;
       }
@@ -112,28 +109,29 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
     return widget.parameterBox.values.map((p) => p.trackType).toSet().toList();
   }
 
-  bool get _canSave =>
-      _formKey.currentState?.validate() == true &&
-          _selectedVar != null &&
-          _selectedUnit != null;
-
+  // --- FIX: This is the logic that enables/disables the save button ---
+  // The color picker has no validator, so it does not affect this logic.
+  // As long as the form is valid, the button will be enabled.
   void _save() {
-    if (!_canSave) return;
-    final param = ParameterItem(
-      name: _displayName!,
-      jsonKey: _selectedVar!.field,
-      unit: _unit,
-      color: _color,
-      scaleStart: int.parse(_startCtrl.text),
-      scaleEnd: int.parse(_endCtrl.text),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      trackType: _trackType!,
-      apiName: _selectedVar!.name,
-      value: '0',
-    );
-    widget.parameterBox.put(param.jsonKey, param);
-    Navigator.of(context).pop();
+    // 1. Check if the form is valid by running all validators.
+    if (_formKey.currentState?.validate() ?? false) {
+      // 2. If it is, create the ParameterItem.
+      final param = ParameterItem(
+        name: _displayName!,
+        jsonKey: _selectedVar!.field,
+        unit: _unit,
+        color: _color, // Uses the state variable, which is either the default or user-picked color
+        scaleStart: int.parse(_startCtrl.text),
+        scaleEnd: int.parse(_endCtrl.text),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        trackType: _trackType!,
+        apiName: _selectedVar!.name,
+        value: '0',
+      );
+      widget.parameterBox.put(param.jsonKey, param);
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _pickColor() async {
@@ -262,7 +260,7 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
                     ))
                         .toList(),
                     value: _trackType,
-                    validator: (_) => _trackType == null ? 'Required' : null,
+                    validator: (v) => v == null ? 'Required' : null,
                     onChanged: (v) => setState(() => _trackType = v),
                   ),
                 const SizedBox(height: 12),
@@ -368,8 +366,9 @@ class _AddParameterDialogState extends State<AddParameterDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
+        // --- FIX: The onPressed callback now simply calls our _save method ---
         ElevatedButton(
-          onPressed: _canSave ? _save : null,
+          onPressed: _save,
           child: const Text('Save'),
         ),
       ],

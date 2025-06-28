@@ -70,6 +70,8 @@ flutter:
   assets:
     - assets/images/image_home.png
     - assets/images/bit_depth.svg
+    - assets/images/logo.png
+    - assets/images/login_bg.png
 
   generate: true
 

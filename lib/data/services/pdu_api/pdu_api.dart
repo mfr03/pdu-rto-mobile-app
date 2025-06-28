@@ -19,8 +19,10 @@ class PduApi {
   static const String _depthDataEndPoint = "/dome_api/realtime-data-depthbased";
   static const String _realtimeRemarkEndpoint = "/dome_api/realtime-data-remark";
 
-  /// Fetch the list of active wells
-  Future<List<WellActive>> fetchActiveWells() async {
+  Future<List<WellActive>> fetchActiveWells({
+    String? userRole,
+    String? userCompany,
+  }) async {
     final url = Uri.http(_baseUrl, _wellActiveEndpoint);
 
     try {
@@ -31,12 +33,29 @@ class PduApi {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data["result"] != null) {
           final List<dynamic> results = data["result"];
-          return results.map((json) => WellActive.fromJson(json)).toList();
+          List<WellActive> allWells =
+          results.map((json) => WellActive.fromJson(json)).toList();
+
+          if (userRole?.toLowerCase() == 'admin') {
+            debugPrint("User is admin, returning all wells.");
+            return allWells;
+          }
+
+          if (userRole?.toLowerCase() == 'user' && userCompany != null) {
+            debugPrint("User is a regular user, filtering for company: $userCompany");
+            return allWells
+                .where((well) =>
+            well.companyName?.toLowerCase() == userCompany.toLowerCase())
+                .toList();
+          }
+
+          return allWells;
         } else {
           throw Exception("Key 'result' not found in JSON.");
         }
       } else {
-        throw Exception("Failed to load wells. Status code: ${response.statusCode}");
+        throw Exception(
+            "Failed to load wells. Status code: ${response.statusCode}");
       }
     } catch (e) {
       throw Exception(e.toString());
@@ -204,18 +223,23 @@ class PduApi {
 
     debugPrint("PDU API [Depth Request Body]: ${jsonEncode(request.body)}");
 
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-    if (response.statusCode != 200) {
-      debugPrint("Depth API error ${response.statusCode}: ${response.body}");
+    try {
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 200) {
+        debugPrint("Depth API error ${response.statusCode}: ${response.body}");
+        return [];
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final List<dynamic> results = body["result"] ?? [];
+      return results
+          .cast<Map<String, dynamic>>()
+          .map((j) => DepthDrillingData.fromJson(j))
+          .toList();
+    } catch(e) {
       return [];
     }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final List<dynamic> results = body["result"] ?? [];
-    return results
-        .cast<Map<String, dynamic>>()
-        .map((j) => DepthDrillingData.fromJson(j))
-        .toList();
+
   }
 
   Future<List<DepthDrillingData>> fetchDepthBasedData({
@@ -350,8 +374,8 @@ class PduApi {
     }
   }
 
-  Future<List<DrillVariable>> fetchAvailableVariables() async { // Token is now optional
-    // 1. The URI no longer includes a token.
+  Future<List<DrillVariable>> fetchAvailableVariables() async
+  {
     final uri = Uri.http(_baseUrl,'/dome_api/variable');
 
     try {

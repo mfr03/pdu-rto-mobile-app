@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pdu_mobile_rto_app/common/components/circle.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_unit.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/drill_variable.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/pdu_api.dart';
 import '../../../../../data/services/pdu_api/model/well_active.dart';
-import '../../../controller/chart_drilling_controller.dart';
 import '../../../model/parameter_item.dart';
 
 

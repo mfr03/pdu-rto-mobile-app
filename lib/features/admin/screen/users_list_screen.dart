@@ -1,7 +1,6 @@
 // lib/features/admin/screens/users_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_it/get_it.dart';
 import 'package:pdu_mobile_rto_app/features/admin/models/app_user_model.dart';
 import 'package:pdu_mobile_rto_app/features/admin/widgets/add_user_dialog.dart';
 import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
@@ -65,7 +64,7 @@ class _UsersListScreenState extends State<UsersListScreen> {
           children: [
             Text(user.email),
             const SizedBox(height: 2),
-            Text(S.of(context).roleUserrole, style: Theme.of(context).textTheme.bodySmall),
+            Text("${S.of(context).roleUserrole} ${user.role}", style: Theme.of(context).textTheme.bodySmall),
             // Text('Company ID: ${user.companyId}', style: Theme.of(context).textTheme.bodySmall),
           ],
         ),

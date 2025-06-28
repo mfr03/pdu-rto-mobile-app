@@ -42,7 +42,7 @@ class _SetTraversalUnitDialogState extends State<SetTraversalUnitDialog> {
       title: const Text('Set Traversal Unit (Minutes)'),
       content: DropdownButton<int>(
         value: _selectedValue,
-        items: [5, 10, 15, 30, 60, 120, 240, 480, 960]
+        items: [960, 480, 240, 120, 60, 30, 15, 5]
             .map((t) => DropdownMenuItem(value: t, child: Text('$t minutes')))
             .toList(),
         onChanged: (val) {

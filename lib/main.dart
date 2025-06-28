@@ -173,7 +173,7 @@ class MainApp extends StatelessWidget {
       onGenerateTitle: (context) => S.of(context).pduMobileRto,
       theme: CAppTheme.lightTheme,
       darkTheme: CAppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       debugShowCheckedModeBanner: false,
       home: ValueListenableBuilder(valueListenable: initializationNotifier,
           builder: (context, status, child) {

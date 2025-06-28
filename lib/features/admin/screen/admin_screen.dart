@@ -91,15 +91,12 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
     required VoidCallback onTap,
   }) {
 
-    ColorScheme colorScheme = Theme.of(context).colorScheme;
-
     return Card(
       elevation: 4.0,
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(CSizes.standardBorderRadiusSize),
       ),
-      color: colorScheme.secondary,
       child: InkWell(
         borderRadius: BorderRadius.circular(CSizes.standardBorderRadiusSize),
         onTap: onTap,
@@ -107,7 +104,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.all(20.0),
           child: Row(
             children: [
-              Icon(icon, size: 40, color: colorScheme.onSecondary),
+              Icon(icon, size: 40, color: CColors.primaryColor),
               const SizedBox(width: 20),
               Expanded(
                 child: Column(
@@ -117,14 +114,14 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
                       title,
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.onSecondary,
+                        color: CColors.tertiaryColor,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSecondary,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
@@ -141,16 +138,15 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
 
-    final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface, // Light overall background
+      backgroundColor: CColors.white, // Light overall background
       appBar: AppBar(
         title: Text(
           S.of(context).adminPanel,
-          style: TextStyle(color: colorScheme.onPrimary, fontWeight: FontWeight.bold),
+          style: TextStyle(color: CColors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: colorScheme.primary,
+        backgroundColor: CColors.primaryColor,
         elevation: 2.0,
         automaticallyImplyLeading: false, // Remove back button if it's a main screen
         actions: [
@@ -170,7 +166,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
             Text(
               S.of(context).welcomeAdmin,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: colorScheme.onSurface.withAlpha(140),
+                color: CColors.tertiaryColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -180,7 +176,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
                 child: Text(
                   _adminEmail!,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface.withAlpha(140),
+                    color: Colors.grey[700],
                   ),
                 ),
               ),

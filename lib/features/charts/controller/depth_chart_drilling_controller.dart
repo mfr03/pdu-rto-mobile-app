@@ -196,7 +196,7 @@ class DepthDrillingController extends GetxController {
 
       transientNotification.value = SnackbarNotification(
           title: 'Data Successfully Loaded',
-          message: ''
+          message: 'Data from $timeStart to $timeEnd loaded.'
       );
 
       // 4. Update the UI
