@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:pdu_mobile_rto_app/common/screen/initialization_error_screen.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
@@ -53,6 +54,9 @@ Future<void> initializeKeepAliveService() async {
       onStart: onStart,
       isForegroundMode: true,
       autoStart: true,
+      autoStartOnBoot: true,
+      initialNotificationContent: "Persiapan Menerima Notifikasi (Jangan tutup jika ingin menerima notifikasi)",
+      initialNotificationTitle: "Notification Handler"
     ),
     iosConfiguration: IosConfiguration(
       autoStart: true,
