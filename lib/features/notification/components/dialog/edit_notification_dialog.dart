@@ -51,11 +51,12 @@ class _EditNotificationSettingDialogState
 
       // Call HiveService.saveNotificationSetting for Hive update and server sync
       await HiveService.saveNotificationSetting(updatedSetting);
-
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.setting.parameterName} alert updated & syncing!')),
-      );
+      if(mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.setting.parameterName} alert updated & syncing!')),
+        );
+      }
     }
   }
 
@@ -86,10 +87,12 @@ class _EditNotificationSettingDialogState
         widget.setting.wellApiToken,
         widget.setting.parameterJsonKey,
       );
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.setting.parameterName} alert deleted & syncing!')),
-      );
+      if(mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.setting.parameterName} alert deleted & syncing!')),
+        );
+      }
     }
   }
 

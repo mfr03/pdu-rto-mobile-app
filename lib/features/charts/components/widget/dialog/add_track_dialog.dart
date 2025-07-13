@@ -141,21 +141,24 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   }
 
   Future<void> _loadVariables() async {
-
-    final PduApi api = Get.find<PduApi>();
-
     try {
-      final vars = await api.fetchAvailableVariables();
+      final PduApi api = Get.find<PduApi>();
+      final results = await Future.wait([
+        api.fetchAvailableVariables(),
+        api.fetchUnits(),
+      ]);
+
       if (mounted) {
         setState(() {
-          _allVariables = vars;
+          _allVariables = results[0] as List<DrillVariable>;
+          _availableUnits = results[1] as List<Unit>; // Populate the units list
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMsg = 'Failed to load variables';
+          _errorMsg = 'Failed to load variables or units';
           _isLoading = false;
         });
       }

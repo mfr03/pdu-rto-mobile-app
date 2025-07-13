@@ -40,7 +40,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      print("App resumed: Checking token validity...");
+      debugPrint("App resumed: Checking token validity...");
       _checkTokenAndNavigate();
     }
   }
@@ -49,11 +49,20 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
     final bool tokenIsExpired = await _authService.isTokenExpired();
 
     if (tokenIsExpired) {
-      print("Token is expired. Navigating to Login Screen.");
+      debugPrint("Token is expired. Navigating to Login Screen.");
+
+      if(mounted) {
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Your session has expired. Please log in again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
       await _authService.logout();
 
-      // MODIFIED: Use the global navigator key. This is much safer.
-      // It ensures we have the correct context for navigation.
       final navigator = navigatorKey.currentState;
       if (navigator != null) {
         navigator.pushAndRemoveUntil(

@@ -85,7 +85,7 @@ class DrillingController extends GetxController {
       // Otherwise, all the historical data we have is considered "live"
       liveTimeData.assignAll(historicalTimeData);
     }
-    print("CONTROLLER SYNC: liveTimeData updated with ${liveTimeData.length} points.");
+    debugPrint("CONTROLLER SYNC: liveTimeData updated with ${liveTimeData.length} points.");
   }
 
 
@@ -148,7 +148,7 @@ class DrillingController extends GetxController {
   void startLiveUpdates({required WellActive wellActive}) {
     stopLiveUpdates(); // Stop any existing timer first
     _realtimeHomeTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      print("TIMER TICK: Fetching latest live data...");
+      debugPrint("TIMER TICK: Fetching latest live data...");
       fetchAndUpdateLatestLiveTimeData(wellActive: wellActive);
     });
   }
@@ -156,7 +156,7 @@ class DrillingController extends GetxController {
   void stopLiveUpdates() {
     _realtimeHomeTimer?.cancel();
     _realtimeHomeTimer = null;
-    print("TIMER STOPPED");
+    debugPrint("TIMER STOPPED");
   }
 
   Future<void> initializeData({
@@ -165,24 +165,24 @@ class DrillingController extends GetxController {
   {
     // Path A: For a LIVE well, if historicalTimeData already has points (likely from timer appends)
     if (historicalTimeData.isNotEmpty && !isWellCompleted(wellActive: wellActive)) {
-      print("CONTROLLER: initializeData - Live well, historicalTimeData already has ${historicalTimeData.length} points. Updating display.");
+      debugPrint("CONTROLLER: initializeData - Live well, historicalTimeData already has ${historicalTimeData.length} points. Updating display.");
       updateDisplayedTimeChartData(); // This should populate displayedData
       return;
     }
     // Path B: For a COMPLETED well, if historicalTimeData already has points
     if (historicalTimeData.isNotEmpty && isWellCompleted(wellActive: wellActive)) {
-      print("CONTROLLER: initializeData - Completed well, historicalTimeData already has ${historicalTimeData.length} points. Updating display.");
+      debugPrint("CONTROLLER: initializeData - Completed well, historicalTimeData already has ${historicalTimeData.length} points. Updating display.");
       updateDisplayedTimeChartData(); // This should populate displayedData
       return;
     }
 
     // Path C: historicalTimeData is EMPTY (or conditions above not met), so fetch initial historical block.
-    print("CONTROLLER: initializeData - historicalTimeData is empty or forced fetch. Fetching with fetchRealtimeDataIncrement for ${wellActive.wellName}");
+    debugPrint("CONTROLLER: initializeData - historicalTimeData is empty or forced fetch. Fetching with fetchRealtimeDataIncrement for ${wellActive.wellName}");
     final data = await api.fetchRealtimeDataIncrement(wellActive: wellActive);
-    print("CONTROLLER: initializeData - Data fetched by fetchRealtimeDataIncrement. Count: ${data.length}");
+    debugPrint("CONTROLLER: initializeData - Data fetched by fetchRealtimeDataIncrement. Count: ${data.length}");
 
     historicalTimeData.assignAll(data);
-    print("CONTROLLER: initializeData - historicalTimeData assigned. Length: ${historicalTimeData.length}");
+    debugPrint("CONTROLLER: initializeData - historicalTimeData assigned. Length: ${historicalTimeData.length}");
 
     if (historicalTimeData.isNotEmpty) {
       timeChartCurrentIndex.value = (historicalTimeData.length > displayedDataPoints)
@@ -191,7 +191,7 @@ class DrillingController extends GetxController {
     } else {
       timeChartCurrentIndex.value = 0;
     }
-    print("CONTROLLER: initializeData - timeChartCurrentIndex set to: ${timeChartCurrentIndex.value}");
+    debugPrint("CONTROLLER: initializeData - timeChartCurrentIndex set to: ${timeChartCurrentIndex.value}");
     updateDisplayedTimeChartData(); // This populates displayedData
   }
 
@@ -219,12 +219,12 @@ class DrillingController extends GetxController {
       liveTimeData.clear();
       latestLiveTimeDataPoint.value = null;
 
-      print("CONTROLLER: loadHistoricalData - User initiated historical data load.");
+      debugPrint("CONTROLLER: loadHistoricalData - User initiated historical data load.");
 
       final data = await api.fetchRealtimeDataIncrement(wellActive: wellActive);
 
       if (data.isNotEmpty) {
-        print("CONTROLLER: loadHistoricalData - SUCCESS, found ${data.length} historical points.");
+        debugPrint("CONTROLLER: loadHistoricalData - SUCCESS, found ${data.length} historical points.");
         historicalTimeData.assignAll(data);
         if (historicalTimeData.length > displayedDataPoints) {
           timeChartCurrentIndex.value = historicalTimeData.length - displayedDataPoints;
@@ -241,7 +241,7 @@ class DrillingController extends GetxController {
         }
 
       } else {
-        print("CONTROLLER: loadHistoricalData - FAILED, no historical data found either.");
+        debugPrint("CONTROLLER: loadHistoricalData - FAILED, no historical data found either.");
         historicalTimeData.clear();
         liveTimeData.clear();
         latestLiveTimeDataPoint.value = null;
@@ -356,7 +356,7 @@ class DrillingController extends GetxController {
 
   Future<void> fetchAndUpdateLatestLiveTimeData({required WellActive wellActive}) async {
     if (!isTimeChartLive.value) {
-      print("TIMER SKIPPED: Not in live mode.");
+      debugPrint("TIMER SKIPPED: Not in live mode.");
       return;
     }
 
@@ -364,7 +364,7 @@ class DrillingController extends GetxController {
 
     // Check if we have crossed into a new chunk (e.g., time moved from 10:59 to 11:00)
     if (now.hour != currentChunkStart.value?.hour) {
-      print("CHUNK CHANGE DETECTED: Reloading for new hour.");
+      debugPrint("CHUNK CHANGE DETECTED: Reloading for new hour.");
       await _fetchDataForChunk(anchorTime: now);
       return;
     }
@@ -381,7 +381,7 @@ class DrillingController extends GetxController {
     );
 
     if (newData.isNotEmpty) {
-      print("LIVE REFRESH: Found ${newData.length} new data points.");
+      debugPrint("LIVE REFRESH: Found ${newData.length} new data points.");
 
       // Efficiently add new points without duplicates
       final existingTimestamps = historicalTimeData.map((p) => p.dateTime).toSet();
@@ -396,7 +396,7 @@ class DrillingController extends GetxController {
         updateDisplayedTimeChartData();
       }
     } else {
-      print("LIVE REFRESH: No new data points found.");
+      debugPrint("LIVE REFRESH: No new data points found.");
     }
   }
 
@@ -503,7 +503,7 @@ class DrillingController extends GetxController {
     if (_notificationSettingsBox != null && _currentActiveWell != null) {
       _loadEnabledSettingsForCurrentWell();
       _notificationSettingsBox!.watch().listen((event) { // Listen for changes to settings
-        print("Notification settings box changed, reloading enabled settings.");
+        debugPrint("Notification settings box changed, reloading enabled settings.");
         _loadEnabledSettingsForCurrentWell();
       });
     }
@@ -514,7 +514,7 @@ class DrillingController extends GetxController {
       _currentWellEnabledSettings = _notificationSettingsBox!.values
           .where((s) => s.wellApiToken == _currentActiveWell!.isApiToken && s.isEnabled)
           .toList();
-      print("Loaded ${_currentWellEnabledSettings.length} enabled notification settings for well ${_currentActiveWell!.isApiToken}");
+      debugPrint("Loaded ${_currentWellEnabledSettings.length} enabled notification settings for well ${_currentActiveWell!.isApiToken}");
     }
   }
 

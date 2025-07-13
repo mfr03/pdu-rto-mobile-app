@@ -22,35 +22,36 @@ class FcmService {
   Future<void> handleNotificationAcknowledge(String? ruleId) async {
     if (ruleId != null && ruleId.isNotEmpty) {
       try {
-        print('Attempting to acknowledge notification for rule ID: $ruleId (from tap)');
-        bool ackSuccess = await _pduNotificationApiClient.acknowledgeNotification(ruleId);
+        debugPrint(
+            'Attempting to acknowledge notification for rule ID: $ruleId (from tap)');
+        bool ackSuccess =
+            await _pduNotificationApiClient.acknowledgeNotification(ruleId);
         if (ackSuccess) {
-          print('Successfully acknowledged notification for rule ID: $ruleId with server.');
+          debugPrint(
+              'Successfully acknowledged notification for rule ID: $ruleId with server.');
         } else {
-          print('Failed to acknowledge notification for rule ID: $ruleId with server.');
+          debugPrint(
+              'Failed to acknowledge notification for rule ID: $ruleId with server.');
         }
       } catch (e) {
-        print('Error calling acknowledge API for rule ID $ruleId: $e');
+        debugPrint('Error calling acknowledge API for rule ID $ruleId: $e');
       }
     } else {
-      print('No rule_id found in notification payload to acknowledge.');
+      debugPrint('No rule_id found in notification payload to acknowledge.');
     }
   }
 
   Future<void> setupListenersForMainApp() async {
-
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-      if (kDebugMode) print("FCM Token Refreshed: $newToken");
+      debugPrint("FCM Token Refreshed: $newToken");
       registerDeviceWithPduServer(newFcmToken: newToken);
     }).onError((err) {
-      if (kDebugMode) {
-        print("Error refreshing FCM token: $err");
-      }
+      debugPrint("Error refreshing FCM token: $err");
     });
 
-
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Got a message whilst in the foreground!: ${message.notification?.title}');
+      debugPrint(
+          'Got a message whilst in the foreground!: ${message.notification?.title}');
       if (message.notification != null) {
         String? ruleIdForPayload;
         if (message.data.containsKey('rule_id')) {
@@ -59,36 +60,40 @@ class FcmService {
       }
     });
 
-    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
+    FirebaseMessaging.instance
+        .getInitialMessage()
+        .then((RemoteMessage? message) {
       if (message != null) {
-        print('App opened from terminated state by tapping a notification!');
-        print('Terminated State Message data: ${message.data}');
+        debugPrint('App opened from terminated state by tapping a notification!');
+        debugPrint('Terminated State Message data: ${message.data}');
         final String? ruleId = message.data['rule_id'] as String?;
         handleNotificationAcknowledge(ruleId);
       }
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
-      print('App opened from background state by tapping a notification!');
-      print('Background State Message data: ${message.data}');
+      debugPrint('App opened from background state by tapping a notification!');
+      debugPrint('Background State Message data: ${message.data}');
       final String? ruleId = message.data['rule_id'] as String?;
       handleNotificationAcknowledge(ruleId);
     });
-
   }
 
   Future<void> registerDeviceWithPduServer({String? newFcmToken}) async {
-    String? fcmToken = newFcmToken ?? await FirebaseMessaging.instance.getToken();
+    String? fcmToken =
+        newFcmToken ?? await FirebaseMessaging.instance.getToken();
     if (fcmToken != null) {
-      if (kDebugMode) print("FcmService: Attempting to register device with PDU Server. FCM Token: $fcmToken");
-      bool success = await _pduNotificationApiClient.registerDevice(fcmToken: fcmToken);
+        debugPrint(
+            "FcmService: Attempting to register device with PDU Server. FCM Token: $fcmToken");
+      bool success =
+          await _pduNotificationApiClient.registerDevice(fcmToken: fcmToken);
       if (success) {
-        if (kDebugMode) print("FcmService: Device registered successfully with PDU server.");
+          debugPrint("FcmService: Device registered successfully with PDU server.");
       } else {
-        if (kDebugMode) print("FcmService: Failed to register device with PDU server.");
+          debugPrint("FcmService: Failed to register device with PDU server.");
       }
     } else {
-      if (kDebugMode) print("FcmService: FCM Token was null.");
+      debugPrint("FcmService: FCM Token was null.");
     }
   }
 
@@ -100,33 +105,29 @@ class FcmService {
       badge: true,
       carPlay: false,
       criticalAlert: false,
-      provisional: false, // Set to true if you want to send notifications without explicit permission on iOS (less intrusive)
+      provisional:
+          false, // Set to true if you want to send notifications without explicit permission on iOS (less intrusive)
       sound: true,
     );
 
-    print('User granted permission: ${settings.authorizationStatus}');
+    debugPrint('User granted permission: ${settings.authorizationStatus}');
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('User granted permission');
-    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-      print('User granted provisional permission');
+      debugPrint('User granted permission');
+    } else if (settings.authorizationStatus ==
+        AuthorizationStatus.provisional) {
+      debugPrint('User granted provisional permission');
     } else {
-      print('User declined or has not accepted permission');
+      debugPrint('User declined or has not accepted permission');
     }
 
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true
-    );
-
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+            alert: true, badge: true, sound: true);
   }
-
 }
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }

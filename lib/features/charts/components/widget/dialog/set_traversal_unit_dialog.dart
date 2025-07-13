@@ -33,7 +33,9 @@ class _SetTraversalUnitDialogState extends State<SetTraversalUnitDialog> {
     } else { // mode == 'depth'
       await ChartSettingsService.saveDepthTraversalUnit(_selectedValue);
     }
-    Navigator.of(context).pop();
+    if(mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

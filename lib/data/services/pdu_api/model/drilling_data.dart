@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show debugPrint;
 import 'package:json_annotation/json_annotation.dart';
 
 part 'drilling_data.g.dart';
@@ -6,7 +7,7 @@ DateTime _dateTimeFromJson(String dateString) {
   try {
     return DateTime.parse(dateString);
   } catch (e) {
-    print('Error parsing DateTime "$dateString": $e');
+    debugPrint('Error parsing DateTime "$dateString": $e');
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
@@ -15,7 +16,7 @@ double _toDoubleSafe(dynamic val, [double defaultValue = 0.0]) {
   if (val == null || val.toString().isEmpty) return defaultValue;
   final parsedValue = double.tryParse(val.toString());
   if (parsedValue == null) {
-    print('Error parsing double for value: "$val". Using default: $defaultValue');
+    debugPrint('Error parsing double for value: "$val". Using default: $defaultValue');
     return defaultValue;
   }
   return parsedValue;

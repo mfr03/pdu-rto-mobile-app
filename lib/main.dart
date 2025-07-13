@@ -4,7 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:pdu_mobile_rto_app/common/screen/initialization_error_screen.dart';
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
@@ -32,7 +31,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("Handling a background message via Firebase handler: ${message.messageId}");
+  debugPrint("Handling a background message via Firebase handler: ${message.messageId}");
 }
 
 @pragma('vm:entry-point')
@@ -41,7 +40,7 @@ void onStart(ServiceInstance service) async {
 
   FcmService.setupBackgroundMessageHandler();
 
-  print("Persistent background service is running to keep app alive.");
+  debugPrint("Persistent background service is running to keep app alive.");
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
@@ -55,8 +54,9 @@ Future<void> initializeKeepAliveService() async {
       isForegroundMode: true,
       autoStart: true,
       autoStartOnBoot: true,
-      initialNotificationContent: "Persiapan Menerima Notifikasi (Jangan tutup jika ingin menerima notifikasi)",
-      initialNotificationTitle: "Notification Handler"
+      initialNotificationContent: "Persiapan Menerima Notifikasi",
+      initialNotificationTitle: "Notification Handler",
+
     ),
     iosConfiguration: IosConfiguration(
       autoStart: true,
@@ -101,13 +101,13 @@ Future<void> main() async {
     try {
       await LocalNotificationService.initialize(); //
     } catch (e, s) {
-      print('LocalNotificationService initialization failed: $e');
+      debugPrint('LocalNotificationService initialization failed: $e');
     }
 
     try {
       await fcmService.initForMainApp();
     } catch (e) {
-      print('FCM setup or permission request failed: $e');
+      debugPrint('FCM setup or permission request failed: $e');
     }
 
 
@@ -116,7 +116,7 @@ Future<void> main() async {
     try {
       loggedIn = await authService.isLoggedIn(); //
     } catch (e, s) {
-      print('Failed to check login status: $e');
+      debugPrint('Failed to check login status: $e');
     }
 
     Widget initialScreen = const LoginScreen(); // Default
@@ -126,7 +126,7 @@ Future<void> main() async {
       try {
         await fcmService.registerDeviceWithPduServer();
       } catch (e) {
-        print('Failed to register device with PDU server post-login check: $e');
+        debugPrint('Failed to register device with PDU server post-login check: $e');
       }
 
 
@@ -135,13 +135,14 @@ Future<void> main() async {
       try {
         role = await authService.getRole();
       } catch (e) {
-        print('Failed to get user role: $e');
+        debugPrint('Failed to get user role: $e');
         role = "USER";
       }
       if (kDebugMode) {
-        print(
+        debugPrint(
             'main.dart: User is loggedIn. Retrieved role from SharedPreferences: "$role"');
       }
+
 
       if (role != null && role.toUpperCase() == 'ADMIN') {
         initialScreen = const AdminScreen();
@@ -152,7 +153,7 @@ Future<void> main() async {
     initializationNotifier.value = InitializationStatus.success;
     runApp(MainApp(initialScreen: initialScreen));
   } catch(e) {
-    print('Critical application initialization failed: $e');
+    debugPrint('Critical application initialization failed: $e');
     globalInitializationError = "A critical error occurred during app startup. Please try again. Details: $e";
     initializationNotifier.value = InitializationStatus.failure;
     runApp(MainApp(initialScreen: InitializationErrorScreen(errorMessage: globalInitializationError!, onRetry: main))); // Pass main itself to retry

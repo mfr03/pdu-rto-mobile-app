@@ -1,4 +1,5 @@
 // lib/utils/client_id_service.dart (example)
+import 'package:flutter/material.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -14,9 +15,7 @@ class ClientIdService {
     if (clientId == null) {
       clientId = _uuid.v4();
       await prefs.setString(_clientIdKey, clientId);
-      if (kDebugMode) {
-        print('Generated and saved new persistent client ID: $clientId');
-      }
+        debugPrint('Generated and saved new persistent client ID: $clientId');
     }
     return clientId;
   }

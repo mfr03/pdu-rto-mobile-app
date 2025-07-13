@@ -29,6 +29,7 @@ class AddParameterDialog extends StatefulWidget {
 }
 
 class _AddParameterDialogState extends State<AddParameterDialog> {
+
   final _formKey = GlobalKey<FormState>();
 
   // Form state variables

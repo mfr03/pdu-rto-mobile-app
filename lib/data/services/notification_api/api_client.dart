@@ -1,5 +1,6 @@
 // codes/lib/data/services/notification_api/api_client.dart
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kDebugMode;
@@ -18,7 +19,7 @@ class ApiClient {
   Future<Map<String, String>> _getAuthHeaders() async {
     String? token = await _authService.getToken();
     if (token == null) {
-      print("Error: Auth token is null. Cannot make authenticated request.");
+      debugPrint("Error: Auth token is null. Cannot make authenticated request.");
       return {"Content-Type": "application/json"};
     }
     return {
@@ -31,8 +32,8 @@ class ApiClient {
   Future<http.Response> _post(String endpoint, Map<String, dynamic> body) async {
     final url = Uri.parse('$baseUrl/$endpoint');
     if (kDebugMode) {
-      print('POST Request to: $url');
-      print('Request Body: ${jsonEncode(body)}');
+      debugPrint('POST Request to: $url');
+      debugPrint('Request Body: ${jsonEncode(body)}');
     }
     final headers = await _getAuthHeaders();
     final response = await http.post(
@@ -41,8 +42,8 @@ class ApiClient {
       body: jsonEncode(body),
     ).timeout(const Duration(seconds: 20));
     if (kDebugMode) {
-      print('POST Response Status: ${response.statusCode}');
-      print('POST Response Body: ${response.body}');
+      debugPrint('POST Response Status: ${response.statusCode}');
+      debugPrint('POST Response Body: ${response.body}');
     }
     return response;
   }
@@ -50,8 +51,8 @@ class ApiClient {
   Future<http.Response> _put(String endpoint, Map<String, dynamic> body) async {
     final url = Uri.parse('$baseUrl/$endpoint');
     if (kDebugMode) {
-      print('PUT Request to: $url');
-      print('Request Body: ${jsonEncode(body)}');
+      debugPrint('PUT Request to: $url');
+      debugPrint('Request Body: ${jsonEncode(body)}');
     }
     final headers = await _getAuthHeaders();
     final response = await http.put(
@@ -60,8 +61,8 @@ class ApiClient {
       body: jsonEncode(body),
     ).timeout(const Duration(seconds: 20));
     if (kDebugMode) {
-      print('PUT Response Status: ${response.statusCode}');
-      print('PUT Response Body: ${response.body}');
+      debugPrint('PUT Response Status: ${response.statusCode}');
+      debugPrint('PUT Response Body: ${response.body}');
     }
     return response;
   }
@@ -69,7 +70,7 @@ class ApiClient {
   Future<http.Response> _delete(String endpoint) async {
     final url = Uri.parse('$baseUrl/$endpoint');
     if (kDebugMode) {
-      print('DELETE Request to: $url');
+      debugPrint('DELETE Request to: $url');
     }
     final headers = await _getAuthHeaders();
     final response = await http.delete(
@@ -77,8 +78,8 @@ class ApiClient {
       headers: headers,
     ).timeout(const Duration(seconds: 20));
     if (kDebugMode) {
-      print('DELETE Response Status: ${response.statusCode}');
-      print('DELETE Response Body: ${response.body}');
+      debugPrint('DELETE Response Status: ${response.statusCode}');
+      debugPrint('DELETE Response Body: ${response.body}');
     }
     return response;
   }
@@ -86,7 +87,7 @@ class ApiClient {
   Future<http.Response> _get(String endpoint, {Map<String, String>? queryParams}) async {
     final url = Uri.parse('$baseUrl/$endpoint').replace(queryParameters: queryParams);
     if (kDebugMode) {
-      print('GET Request to: $url');
+      debugPrint('GET Request to: $url');
     }
     final headers = await _getAuthHeaders();
     final response = await http.get(
@@ -94,8 +95,8 @@ class ApiClient {
       headers: headers,
     ).timeout(const Duration(seconds: 20));
     if (kDebugMode) {
-      print('GET Response Status: ${response.statusCode}');
-      print('GET Response Body: ${response.body}');
+      debugPrint('GET Response Status: ${response.statusCode}');
+      debugPrint('GET Response Body: ${response.body}');
     }
     return response;
   }
@@ -114,7 +115,7 @@ class ApiClient {
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       if (kDebugMode) {
-        print('Failed to register device: $e');
+        debugPrint('Failed to register device: $e');
       }
       return false;
     }
@@ -147,13 +148,13 @@ class ApiClient {
         return responseBody['id'] as int?; // Server returns the rule with its 'id'
       } else {
         if (kDebugMode) {
-          print('Failed to create notification rule on server: ${response.statusCode} ${response.body}');
+          debugPrint('Failed to create notification rule on server: ${response.statusCode} ${response.body}');
         }
         return null;
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error creating notification rule via API: $e');
+        debugPrint('Error creating notification rule via API: $e');
       }
       return null;
     }
@@ -184,7 +185,7 @@ class ApiClient {
       return response.statusCode == 200; // OK
     } catch (e) {
       if (kDebugMode) {
-        print('Error updating notification rule (ID $serverRuleId) via API: $e');
+        debugPrint('Error updating notification rule (ID $serverRuleId) via API: $e');
       }
       return false;
     }
@@ -198,7 +199,7 @@ class ApiClient {
       return response.statusCode == 200; // OK
     } catch (e) {
       if (kDebugMode) {
-        print('Error deleting notification rule (ID $serverRuleId) via API: $e');
+        debugPrint('Error deleting notification rule (ID $serverRuleId) via API: $e');
       }
       return false;
     }

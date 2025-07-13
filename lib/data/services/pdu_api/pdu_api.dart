@@ -395,19 +395,19 @@ class PduApi {
               .toList();
         } else {
           if (kDebugMode) {
-            print('API returned status ${responseData['status']} or result is not a list.');
+            debugPrint('API returned status ${responseData['status']} or result is not a list.');
           }
           return [];
         }
       } else {
         if (kDebugMode) {
-          print('Failed to fetch variables. HTTP Status: ${response.statusCode}');
+          debugPrint('Failed to fetch variables. HTTP Status: ${response.statusCode}');
         }
         return [];
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error during fetchAvailableVariables: $e');
+        debugPrint('Error during fetchAvailableVariables: $e');
       }
       return [];
     }

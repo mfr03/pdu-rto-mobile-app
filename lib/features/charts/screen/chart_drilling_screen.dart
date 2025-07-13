@@ -279,9 +279,9 @@ class _DrillingChartScreenState extends State<DrillingChartScreen> {
     // The responsibility is now fully within _onDepthTabSelected()
 
     if (_selectedIndex == 1 || (_multiMode == 'time' && _selectedIndex != 0)) {
-      print("CHART_SCREEN: Initializing Time Chart Data. Current historicalTimeData length: ${controller.historicalTimeData.length}");
+      debugPrint("CHART_SCREEN: Initializing Time Chart Data. Current historicalTimeData length: ${controller.historicalTimeData.length}");
       await controller.initializeData(wellActive: widget.wellActive);
-      print("CHART_SCREEN: After controller.initializeData. New historicalTimeData length: ${controller.historicalTimeData.length}, displayedData length: ${controller.displayedData.length}");
+      debugPrint("CHART_SCREEN: After controller.initializeData. New historicalTimeData length: ${controller.historicalTimeData.length}, displayedData length: ${controller.displayedData.length}");
     }
 
     if (mounted) {

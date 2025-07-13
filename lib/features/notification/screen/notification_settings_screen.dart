@@ -1,11 +1,13 @@
 // lib/features/notifications/ui/notification_settings_screen.dart
 import 'dart:async'; // Import for StreamSubscription
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:pdu_mobile_rto_app/data/services/hive/hive_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/client_id_service.dart';
 import 'package:pdu_mobile_rto_app/data/services/pdu_api/model/parameter_notification_setting.dart';
+import 'package:pdu_mobile_rto_app/features/authentication/services/auth_service.dart';
 import 'package:pdu_mobile_rto_app/features/notification/components/dialog/edit_notification_dialog.dart';
 
 import 'package:pdu_mobile_rto_app/utils/constants/colors.dart';
@@ -36,12 +38,21 @@ class _NotificationSettingsScreenState
     _openBoxAndListen();
   }
 
+  static Future<String> _getUserId() async {
+    final authService = Get.find<AuthService>();
+    final employeeId = await authService.getEmployeeId();
+    if (employeeId == null) {
+      throw Exception("User not logged in. Cannot access user-specific notification settings.");
+    }
+    return employeeId;
+  }
+
   Future<void> _openBoxAndListen() async {
     // Ensure the box is open
-
+    final AuthService auth = Get.find<AuthService>();
     if (!Hive.isBoxOpen(HiveService.getParameterNotificationBoxName())) {
       _settingsBox = await HiveService.openParameterNotificationSettings(
-        userId: await ClientIdService.getPersistentClientId()
+        userId: await _getUserId()
       );
     } else {
       _settingsBox = Hive.box<ParameterNotificationSetting>(
@@ -52,7 +63,7 @@ class _NotificationSettingsScreenState
       _loadSettings(); // Initial load
       _boxSubscription = _settingsBox!.watch().listen((event) {
         // When the box changes (put, delete), reload settings for this well
-        print("Notification settings box event: key=${event.key}, value=${event.value}, deleted=${event.deleted}");
+        debugPrint("Notification settings box event: key=${event.key}, value=${event.value}, deleted=${event.deleted}");
         _loadSettings();
       });
     }

@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 
 class AuthService {
-  static final String _authBaseUrl = "http://103.150.93.56:3001/api";
+  static final String _authBaseUrl = "http://70.153.8.55:3001/api";
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -22,8 +22,8 @@ class AuthService {
   Future<Map<String, dynamic>?> login(String email, String password) async {
     final url = Uri.parse('$_authBaseUrl/employee/login');
     if (kDebugMode) {
-      print('Attempting login to: $url');
-      print('Email: $email');
+      debugPrint('Attempting login to: $url');
+      debugPrint('Email: $email');
     }
 
     try {
@@ -34,8 +34,7 @@ class AuthService {
       ).timeout(const Duration(seconds: 15));
 
       if (kDebugMode) {
-        print('Login Response Status: ${response.statusCode}');
-        print('Login Response Body: ${response.body}');
+        debugPrint('Login Response Status: ${response.statusCode}');
       }
 
       if (response.statusCode == 200) {
@@ -58,15 +57,15 @@ class AuthService {
             await fetchAndCacheUserName(employeeId); // Pass the employeeId just retrieved
           } catch (e) {
             if (kDebugMode) {
-              print("AuthService: Failed to fetch/cache user name immediately after login: $e");
+              debugPrint("AuthService: Failed to fetch/cache user name immediately after login: $e");
               // Non-critical error for login flow, name can be fetched later.
             }
           }
 
 
           if (kDebugMode) {
-            print('Token stored: $token');
-            print('Employee ID: $employeeId, Role: $role, Company ID: $companyId');
+            debugPrint('Token stored: $token');
+            debugPrint('Employee ID: $employeeId, Role: $role, Company ID: $companyId');
           }
           return responseData['data']; // Return the user data part
         } else {
@@ -84,7 +83,7 @@ class AuthService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Login error: $e');
+        debugPrint('Login error: $e');
       }
       rethrow; // Rethrow the exception to be caught by the UI
     }
@@ -93,19 +92,20 @@ class AuthService {
   Future<String?> fetchAndCacheUserName([String? existingEmployeeId]) async {
     final token = await getToken();
     if (token == null) {
-      if (kDebugMode) print("AuthService: No token, cannot fetch user name.");
+
+      debugPrint("AuthService: No token, cannot fetch user name.");
       return null; // Or throw Exception('Not authenticated.');
     }
 
     final employeeId = existingEmployeeId ?? await getEmployeeId();
     if (employeeId == null) {
-      if (kDebugMode) print("AuthService: No employeeId, cannot fetch user name.");
+      debugPrint("AuthService: No employeeId, cannot fetch user name.");
       return null; // Or throw Exception('Employee ID not found.');
     }
 
     final url = Uri.parse('$_authBaseUrl/employee/$employeeId');
     if (kDebugMode) {
-      print('AuthService: Fetching user details from: $url');
+      debugPrint('AuthService: Fetching user details from: $url');
     }
 
     try {
@@ -118,8 +118,8 @@ class AuthService {
       ).timeout(const Duration(seconds: 10));
 
       if (kDebugMode) {
-        print('AuthService: Get User Details Response Status: ${response.statusCode}');
-        print('AuthService: Get User Details Response Body: ${response.body}');
+        debugPrint('AuthService: Get User Details Response Status: ${response.statusCode}');
+        debugPrint('AuthService: Get User Details Response Body: ${response.body}');
       }
 
       if (response.statusCode == 200) {
@@ -130,22 +130,22 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_userNameKey, userName);
           if (kDebugMode) {
-            print('AuthService: User name fetched and cached: "$userName"');
+            debugPrint('AuthService: User name fetched and cached: "$userName"');
           }
           return userName;
         } else {
-          if (kDebugMode) print('AuthService: "name" field not found in user details response data.');
+          if (kDebugMode) debugPrint('AuthService: "name" field not found in user details response data.');
           return null;
         }
       } else {
         // final errorData = jsonDecode(response.body);
         // throw Exception(errorData['message'] ?? 'Failed to fetch user details: ${response.statusCode}');
-        if (kDebugMode) print('AuthService: Failed to fetch user details, status: ${response.statusCode}');
+        if (kDebugMode) debugPrint('AuthService: Failed to fetch user details, status: ${response.statusCode}');
         return null; // Don't throw an exception that might break UI, allow fallback
       }
     } catch (e) {
       if (kDebugMode) {
-        print('AuthService: Error fetching user details: $e');
+        debugPrint('AuthService: Error fetching user details: $e');
       }
       return null; // Gracefully return null on error
     }
@@ -160,7 +160,7 @@ class AuthService {
     await prefs.remove(_emailKey);
     await prefs.remove(_userNameKey); // Clear stored name on logout
     if (kDebugMode) {
-      print('User logged out, token and all user data cleared.');
+      debugPrint('User logged out, token and all user data cleared.');
     }
   }
 
@@ -170,16 +170,14 @@ class AuthService {
   }
 
   Future<bool> isTokenExpired() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? token = prefs.getString('user_token');
+    final String? token = await _secureStorage.read(key: _tokenKey);
 
     if (token == null || token.isEmpty) {
-      // If there's no token, we can consider it "expired" for the purpose of being logged in.
       return true;
     }
 
     try {
-      // Decode the token to get its payload
+      // The rest of the decoding logic is correct.
       Map<String, dynamic> payload = Jwt.parseJwt(token);
 
       // JWT 'exp' claim is in seconds since epoch.
@@ -190,7 +188,7 @@ class AuthService {
       return currentTimestamp > expiryTimestamp;
     } catch (e) {
       // If the token is malformed or can't be decoded, treat it as expired.
-      print('Error decoding token: $e');
+      debugPrint('Error decoding token: $e');
       return true;
     }
   }

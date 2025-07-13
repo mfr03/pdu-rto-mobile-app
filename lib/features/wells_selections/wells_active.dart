@@ -74,16 +74,38 @@ class _WellsActiveScreenState extends State<WellsActiveScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      print("App resumed: Checking token validity...");
+      debugPrint("App resumed: Checking token validity...");
       _checkTokenAndNavigate();
     }
   }
 
   Future<void> _checkTokenAndNavigate() async {
-    // This check is for token expiry, different from manual logout
     final bool tokenIsExpired = await _authService.isTokenExpired();
+
     if (tokenIsExpired) {
-      await _logout(); // Reuse the logout logic
+      debugPrint("Token is expired. Navigating to Login Screen.");
+
+      // --- NEW: Show a SnackBar to inform the user ---
+      if(mounted) {
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Your session has expired. Please log in again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      // --- END NEW ---
+
+      await _authService.logout();
+
+      final navigator = navigatorKey.currentState;
+      if (navigator != null) {
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (Route<dynamic> route) => false,
+        );
+      }
     }
   }
 

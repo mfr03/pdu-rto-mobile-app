@@ -70,10 +70,12 @@ class _SetThresholdDialogState extends State<SetThresholdDialog> {
 
       // This will now handle Hive save AND server sync
       await HiveService.saveNotificationSetting(newSetting);
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.parameterItem.name} alert saved & syncing.')),
-      );
+     if(mounted) {
+       Navigator.of(context).pop();
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('${widget.parameterItem.name} alert saved & syncing.')),
+       );
+     }
     }
   }
 
@@ -82,10 +84,12 @@ class _SetThresholdDialogState extends State<SetThresholdDialog> {
       // This will now handle Hive delete AND server sync
       await HiveService.deleteNotificationSetting(
           widget.wellApiToken, widget.parameterItem.jsonKey);
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.parameterItem.name} alert deleted & syncing.')),
-      );
+      if(mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.parameterItem.name} alert deleted & syncing.')),
+        );
+      }
     }
   }
 

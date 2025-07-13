@@ -50,19 +50,22 @@ class _ChartControlButtonsState extends State<ChartControlButtons> {
   bool _areControlsVisible = true;
 
   Future<void> _showTraversalDialog() async {
+    final context = widget.parentContext;
+
     final currentValue = widget.mode == 'time'
         ? await ChartSettingsService.loadTimeTraversalUnit()
         : await ChartSettingsService.loadDepthTraversalUnit();
 
-    if (mounted) {
+    if (!mounted) return;
+
       showDialog(
-        context: widget.parentContext,
+        context: context,
         builder: (_) => SetTraversalUnitDialog(
           mode: widget.mode,
           currentValue: currentValue,
         ),
       );
-    }
+
   }
 
   void _showTrackSettingsDialog(String trackType) async {

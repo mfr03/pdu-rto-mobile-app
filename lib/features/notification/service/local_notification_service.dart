@@ -1,4 +1,5 @@
 // lib/features/notifications/services/local_notification_service.dart
+import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:pdu_mobile_rto_app/data/services/notification_api/fcm_service.dart';
@@ -53,19 +54,19 @@ class LocalNotificationService {
       onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
       onDidReceiveBackgroundNotificationResponse: _onDidReceiveBackgroundNotificationResponse,
     );
-    print("LocalNotificationService initialized: $initialized");
+    debugPrint("LocalNotificationService initialized: $initialized");
   }
 
   static void _onDidReceiveLocalNotification(
       int id, String? title, String? body, String? payload) async {
     // Handle notification when app is in foreground on older iOS versions
-    print("iOS foreground notification: id=$id, title=$title, body=$body, payload=$payload");
+    debugPrint("iOS foreground notification: id=$id, title=$title, body=$body, payload=$payload");
     // You could display an in-app dialog or route the user
   }
 
   static void _onDidReceiveNotificationResponse(NotificationResponse notificationResponse) async {
     final String? payload = notificationResponse.payload;
-    print("Notification tapped with payload: $payload");
+    debugPrint("Notification tapped with payload: $payload");
     final FcmService fcmService = Get.find<FcmService>();
     if (payload != null && payload.isNotEmpty) {
       fcmService.handleNotificationAcknowledge(payload); // Call the shared handler
@@ -76,7 +77,7 @@ class LocalNotificationService {
   @pragma('vm:entry-point')
   static void _onDidReceiveBackgroundNotificationResponse(NotificationResponse notificationResponse) {
     final String? payload = notificationResponse.payload;
-    print("BACKGROUND Notification tapped with payload: $payload");
+    debugPrint("BACKGROUND Notification tapped with payload: $payload");
 
     final FcmService fcmService = Get.find<FcmService>();
     if (payload != null && payload.isNotEmpty) {
@@ -125,9 +126,9 @@ class LocalNotificationService {
         notificationDetails,
         payload: payload,
       );
-      print("Notification shown: id=$notificationId, title=$title");
+      debugPrint("Notification shown: id=$notificationId, title=$title");
     } catch (e) {
-      print("Error showing notification: $e");
+      debugPrint("Error showing notification: $e");
     }
   }
 }

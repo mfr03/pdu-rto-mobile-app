@@ -44,29 +44,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
             final FcmService fcmService = Get.find<FcmService>();
             await fcmService.registerDeviceWithPduServer();
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(S.of(context).loginSuccessful)),
-            );
-
-            if (role.toUpperCase() == 'ADMIN') {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const AdminScreen()),
-              );
-            } else {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const WellsActiveScreen()),
+            if(mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(S.of(context).loginSuccessful)),
               );
             }
+
+            if (role.toUpperCase() == 'ADMIN') {
+              if(mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminScreen()),
+                );
+              }
+            } else {
+              if(mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const WellsActiveScreen()),
+                  );
+                }
+            }
           }
-          // No 'else' needed here as login service throws an exception on failure
         }
       } catch (e) {
         if (mounted) {
+          debugPrint('Login Failed: ${e.toString().replaceFirst("Exception: ", "")}');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login Failed: ${e.toString().replaceFirst("Exception: ", "")}')),
+            SnackBar(content: Text('Login Failed'))
           );
         }
       } finally {
@@ -88,7 +93,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
